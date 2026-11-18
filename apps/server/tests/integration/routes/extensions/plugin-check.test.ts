@@ -73,6 +73,7 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
+  process.env.JF_EXTENSION_CHECKER = "on";
   Object.assign(state, { role: "administrator", root: true, plugin: { plugin_id: "justflows.acme", manifest: { installedPath: installed } } });
 });
 
@@ -84,6 +85,15 @@ describe("checking an installed plugin", () => {
     expect(report.target).toMatchObject({ path: "justflows.acme", mode: "package" });
     expect(report.findings.map((item) => item.rule)).toContain("JF-P001");
     expect(JSON.stringify(report)).not.toContain(scratch.dir);
+  });
+
+  it("is off unless JF_EXTENSION_CHECKER=on, and says how to turn it on", async () => {
+    delete process.env.JF_EXTENSION_CHECKER;
+    const res = await fetch(`${base}/justflows.acme/check`);
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: string }).error).toContain("JF_EXTENSION_CHECKER=on");
+    process.env.JF_EXTENSION_CHECKER = "off";
+    expect((await fetch(`${base}/justflows.acme/check`)).status).toBe(404);
   });
 
   it("is only for administrators on the main site", async () => {

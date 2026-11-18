@@ -48,6 +48,14 @@ const trustRequestLimit = rateLimit({
   legacyHeaders: false,
 });
 
+/**
+ * The admin's extension checker is a tool for plugin authors, so it is off
+ * unless `JF_EXTENSION_CHECKER=on`. `jf check` and the CI action always work.
+ */
+export function extensionCheckerEnabled(): boolean {
+  return process.env.JF_EXTENSION_CHECKER === "on";
+}
+
 function noStore(res: { setHeader: (name: string, value: string) => void }): void {
   res.setHeader("Cache-Control", "private, no-store");
 }
@@ -128,7 +136,7 @@ router.get("/", requireRole("administrator", "editor"), async (req, res) => {
     await ensurePluginRuntime();
     const { listVisiblePlugins } = await import("../../lib/plugins/plugin-multisite.js");
     const plugins = await listVisiblePlugins(session.siteId);
-    res.json({ plugins: plugins.map(withoutVersionOffRoot) });
+    res.json({ plugins: plugins.map(withoutVersionOffRoot), extensionChecker: extensionCheckerEnabled() });
   } catch (err) {
     sendServerError(res, "plugins", err);
   }
@@ -535,6 +543,10 @@ const packageCheckLimit = rateLimit({ windowMs: 60_000, limit: 10, standardHeade
  * the installation's package directories.
  */
 router.get("/:id/check", packageCheckLimit, requireRole("administrator"), async (req, res) => {
+  if (!extensionCheckerEnabled()) {
+    res.status(404).json({ error: "The extension checker is turned off. Set JF_EXTENSION_CHECKER=on to use it here, or run jf check." });
+    return;
+  }
   if (!isInstallationRootRequest()) {
     res.status(403).json({ error: "Plugins are checked on the main site." });
     return;

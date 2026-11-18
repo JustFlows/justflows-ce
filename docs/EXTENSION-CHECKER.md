@@ -62,8 +62,12 @@ own rules; the Marketplace adds its listing rules this way.
 
 ### In the admin
 
-On a development installation, **Extensions → Plugins** has a **Check** action for
-installed packages. It runs the same rules on the installed files.
+The checker is a tool for plugin authors, so it is off in the admin by default. To
+use it there, set `JF_EXTENSION_CHECKER=on` in `.env` and restart. **Extensions →
+Plugins** then has a **Check** action for installed packages, on the main site, for
+administrators. It runs the same rules on the installed files. Without the setting,
+the action is hidden and its API answers `404`. `justflows check` and the CI action
+work either way.
 
 ## Report
 

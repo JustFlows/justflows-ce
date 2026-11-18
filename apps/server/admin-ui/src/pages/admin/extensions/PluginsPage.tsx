@@ -158,6 +158,8 @@ export default function PluginsPage() {
   const [uploadSuccess, setUploadSuccess] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [dragging, setDragging] = useState(false);
+  /** Off unless the server sets JF_EXTENSION_CHECKER=on: a tool for plugin authors, not site owners. */
+  const [checkerEnabled, setCheckerEnabled] = useState(false);
   const [checks, setChecks] = useState<Record<string, { loading?: boolean; report?: CheckReport; error?: string }>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Installing, activating, or deleting a plugin changes which admin pages exist.
@@ -180,8 +182,9 @@ export default function PluginsPage() {
   useEffect(() => {
     fetch("/api/plugins?site-features=1", { cache: "no-store" })
       .then((r) => r.json())
-      .then((data: { plugins?: Plugin[] }) => {
+      .then((data: { plugins?: Plugin[]; extensionChecker?: boolean }) => {
         if (Array.isArray(data.plugins)) setPlugins(data.plugins);
+        setCheckerEnabled(data.extensionChecker === true);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -477,7 +480,7 @@ export default function PluginsPage() {
                         {t("plugins.settingsLink")}
                       </Link>
                     )}
-                    {installationRoot && (
+                    {installationRoot && checkerEnabled && (
                       <button
                         className="jf-btn jf-btn--ghost"
                         disabled={checks[p.id]?.loading === true}
