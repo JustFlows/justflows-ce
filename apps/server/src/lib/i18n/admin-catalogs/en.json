@@ -4675,7 +4675,7 @@
       },
       "networkBlockedMultisite": "Turn on multisite (JF_MULTISITE=true) and restart before restoring subsites.",
       "networkBlockedOperator": "Only a platform operator can restore a network with subsites.",
-      "networkRestoreHint": "New subsites stay offline until the root site is restored. If a step fails or you cancel, they are removed and the root site is left as it was. Accounts are not restored; each new subsite gets your administrator account.",
+      "networkRestoreHint": "The root site is restored first. New subsites stay offline until every site is restored. If a step fails or you cancel, the new subsites are removed and the root site is put back as it was.",
       "networkConfirmationPhrase": "RESTORE NETWORK",
       "networkRestore": "Restore network",
       "networkRestoring": "Restoring network…",

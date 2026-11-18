@@ -4525,7 +4525,7 @@
       },
       "networkBlockedMultisite": "Aktivieren Sie Multisite (JF_MULTISITE=true) und starten Sie neu, bevor Sie Unterseiten wiederherstellen.",
       "networkBlockedOperator": "Nur ein Plattformbetreiber kann ein Netzwerk mit Unterseiten wiederherstellen.",
-      "networkRestoreHint": "Neue Unterseiten bleiben offline, bis die Hauptwebsite wiederhergestellt ist. Schlägt ein Schritt fehl oder brechen Sie ab, werden sie entfernt und die Hauptwebsite bleibt unverändert. Konten werden nicht wiederhergestellt; jede neue Unterseite erhält Ihr Administratorkonto.",
+      "networkRestoreHint": "Die Hauptwebsite wird zuerst wiederhergestellt. Neue Unterseiten bleiben offline, bis alle Websites wiederhergestellt sind. Schlägt ein Schritt fehl oder brechen Sie ab, werden die neuen Unterseiten entfernt und die Hauptwebsite in ihren vorherigen Zustand zurückversetzt.",
       "networkConfirmationPhrase": "RESTORE NETWORK",
       "networkRestore": "Netzwerk wiederherstellen",
       "networkRestoring": "Netzwerk wird wiederhergestellt…",

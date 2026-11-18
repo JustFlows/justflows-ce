@@ -17,7 +17,12 @@ const state = vi.hoisted(() => ({
 const control = vi.hoisted(() => ({
   query: vi.fn(async (sql: string, params: unknown[] = []) => {
     if (sql.startsWith("SELECT tenant_id FROM sites")) return [{ tenant_id: "tenant-1" }];
-    if (sql.startsWith("SELECT hostname FROM site_domains")) return state.taken.filter((host) => params.includes(host)).map((hostname) => ({ hostname }));
+    if (sql.startsWith("SELECT hostname, site_id FROM site_domains")) {
+      return [
+        ...state.taken.filter((host) => params.includes(host)).map((hostname) => ({ hostname, site_id: "someone-else" })),
+        ...(params.includes("root.example.test") ? [{ hostname: "root.example.test", site_id: "target-root" }] : []),
+      ];
+    }
     if (sql.includes("FROM tenants t JOIN sites")) return [{ id: "tenant-1", name: "Before", user_mode: "isolated" }];
     if (sql.startsWith("SELECT status FROM sites")) return [{ status: "provisioning" }];
     return [];
@@ -134,6 +139,12 @@ describe("network restore", () => {
     ]);
     const aliases = control.run.mock.calls.filter(([sql]) => String(sql).startsWith("INSERT INTO site_domains"));
     expect(aliases.map(([, params]) => [params?.[2], params?.[7]])).toEqual([["alpha.custom.test", "pending"]]);
+  });
+
+  it("skips an address the root site already has instead of refusing the restore", async () => {
+    await run({ plan: { ...plan, hostnames: { ...plan.hostnames, "src-root": [{ hostname: "root.example.test" }] } } as typeof plan });
+    const added = control.run.mock.calls.filter(([sql]) => String(sql).startsWith("INSERT INTO site_domains")).map(([, params]) => params?.[2]);
+    expect(added).not.toContain("root.example.test");
   });
 
   it("refuses a target with subsites, multisite off, or a taken address before changing anything", async () => {

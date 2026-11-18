@@ -4525,7 +4525,7 @@
       },
       "networkBlockedMultisite": "Activez le multisite (JF_MULTISITE=true) et redémarrez avant de restaurer des sous-sites.",
       "networkBlockedOperator": "Seul un opérateur de plateforme peut restaurer un réseau avec des sous-sites.",
-      "networkRestoreHint": "Les nouveaux sous-sites restent hors ligne jusqu'à la restauration du site racine. Si une étape échoue ou si vous annulez, ils sont supprimés et le site racine reste inchangé. Les comptes ne sont pas restaurés ; chaque nouveau sous-site reçoit votre compte administrateur.",
+      "networkRestoreHint": "Le site racine est restauré en premier. Les nouveaux sous-sites restent hors ligne jusqu'à la restauration de tous les sites. Si une étape échoue ou si vous annulez, les nouveaux sous-sites sont supprimés et le site racine est remis dans son état précédent.",
       "networkConfirmationPhrase": "RESTORE NETWORK",
       "networkRestore": "Restaurer le réseau",
       "networkRestoring": "Restauration du réseau…",

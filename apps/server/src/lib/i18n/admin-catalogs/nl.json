@@ -4522,7 +4522,7 @@
       },
       "networkBlockedMultisite": "Zet multisite aan (JF_MULTISITE=true) en herstart voordat je subsites terugzet.",
       "networkBlockedOperator": "Alleen een platformbeheerder kan een netwerk met subsites terugzetten.",
-      "networkRestoreHint": "Nieuwe subsites blijven offline tot de hoofdsite is teruggezet. Mislukt een stap of annuleer je, dan worden ze verwijderd en blijft de hoofdsite zoals hij was. Accounts worden niet teruggezet; elke nieuwe subsite krijgt jouw beheerdersaccount.",
+      "networkRestoreHint": "De hoofdsite wordt eerst teruggezet. Nieuwe subsites blijven offline tot alle sites zijn teruggezet. Mislukt een stap of annuleer je, dan worden de nieuwe subsites verwijderd en wordt de hoofdsite teruggezet zoals hij was.",
       "networkConfirmationPhrase": "RESTORE NETWORK",
       "networkRestore": "Netwerk terugzetten",
       "networkRestoring": "Netwerk terugzetten…",

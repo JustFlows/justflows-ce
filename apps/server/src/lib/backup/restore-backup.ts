@@ -273,7 +273,7 @@ interface MappedHost {
 }
 
 /** Validate every hostname the operator chose: valid, unique in the request, and not in use. */
-async function mapHostnames(reader: BackupReader, plan: RestorePlan): Promise<Map<string, MappedHost[]>> {
+async function mapHostnames(reader: BackupReader, plan: RestorePlan, rootSiteId: string): Promise<Map<string, MappedHost[]>> {
   const result = new Map<string, MappedHost[]>();
   const used = new Set<string>();
   const { platformBaseDomain } = await import("../tenancy/saas-settings.js");
@@ -299,8 +299,21 @@ async function mapHostnames(reader: BackupReader, plan: RestorePlan): Promise<Ma
   if (used.size > 0) {
     const control = await getControlDb();
     const all = [...used];
-    const taken = await control.query<{ hostname: string }>(`SELECT hostname FROM site_domains WHERE hostname IN (${all.map(() => "?").join(", ")})`, all);
-    if (taken[0]) throw new Error(`The hostname ${String(taken[0].hostname)} is already in use on this installation`);
+    const taken = await control.query<{ hostname: string; site_id: string }>(
+      `SELECT hostname, site_id FROM site_domains WHERE hostname IN (${all.map(() => "?").join(", ")})`,
+      all,
+    );
+    const rootEntry = reader.manifest.sites.find((entry) => entry.root);
+    const subsiteHosts = new Set(
+      [...result.entries()].filter(([siteId]) => siteId !== rootEntry?.siteId).flatMap(([, hosts]) => hosts.map((host) => host.hostname)),
+    );
+    /** An address the root site already has needs no adding; drop it rather than refuse the restore. */
+    const ownRoot = new Set(
+      taken.filter((row) => String(row.site_id) === rootSiteId && !subsiteHosts.has(String(row.hostname))).map((row) => String(row.hostname)),
+    );
+    if (rootEntry) result.set(rootEntry.siteId, (result.get(rootEntry.siteId) ?? []).filter((host) => !ownRoot.has(host.hostname)));
+    const conflict = taken.find((row) => !ownRoot.has(String(row.hostname)));
+    if (conflict) throw new Error(`The hostname ${String(conflict.hostname)} is already in use on this installation`);
   }
   return result;
 }
@@ -458,7 +471,7 @@ export async function restoreNetwork(input: {
     envelopes.set(entry.siteId, reader.readSite(entry));
     report(`Checked ${entry.siteName}`);
   }
-  const hostnames = await mapHostnames(reader, plan);
+  const hostnames = await mapHostnames(reader, plan, rootSiteId);
   const databases = await checkSiteDatabases(reader, plan, envelopes);
   for (const entry of manifest.sites) await testPluginDatabases(plan.pluginDatabases?.[entry.siteId], envelopes.get(entry.siteId)!);
 

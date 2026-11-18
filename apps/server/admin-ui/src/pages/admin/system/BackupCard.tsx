@@ -999,6 +999,8 @@ export function BackupCard({ installationRoot }: { installationRoot: boolean }) 
 
         {validation && (
           <div className="jf-alert jf-alert--success" role="status">
+            {/** The alert lays its children out in a row; keep the review panel stacked. */}
+            <div className="jf-stack" style={{ flex: 1, minWidth: 0 }}>
             <strong>{network ? t("tools.backup.networkValidTitle") : t("tools.backup.validTitle")}</strong>{" "}
             {t("tools.backup.networkSummary", {
               site: validation.summary.source.siteName,
@@ -1190,6 +1192,7 @@ export function BackupCard({ installationRoot }: { installationRoot: boolean }) 
                 </div>
               </>
             )}
+            </div>
           </div>
         )}
       </div>

@@ -4819,7 +4819,7 @@
       },
       "networkBlockedMultisite": "Włącz multisite (JF_MULTISITE=true) i uruchom ponownie przed przywróceniem podwitryn.",
       "networkBlockedOperator": "Tylko operator platformy może przywrócić sieć z podwitrynami.",
-      "networkRestoreHint": "Nowe podwitryny pozostają offline do czasu przywrócenia witryny głównej. Jeśli krok się nie powiedzie lub anulujesz, zostaną usunięte, a witryna główna pozostanie bez zmian. Konta nie są przywracane; każda nowa podwitryna otrzymuje Twoje konto administratora.",
+      "networkRestoreHint": "Najpierw przywracana jest witryna główna. Nowe podwitryny pozostają offline, dopóki nie zostaną przywrócone wszystkie witryny. Jeśli krok się nie powiedzie lub anulujesz, nowe podwitryny zostaną usunięte, a witryna główna wróci do poprzedniego stanu.",
       "networkConfirmationPhrase": "RESTORE NETWORK",
       "networkRestore": "Przywróć sieć",
       "networkRestoring": "Przywracanie sieci…",

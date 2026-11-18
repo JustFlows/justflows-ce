@@ -4525,7 +4525,7 @@
       },
       "networkBlockedMultisite": "Activa multisitio (JF_MULTISITE=true) y reinicia antes de restaurar subsitios.",
       "networkBlockedOperator": "Solo un operador de la plataforma puede restaurar una red con subsitios.",
-      "networkRestoreHint": "Los subsitios nuevos siguen sin conexión hasta que se restaura el sitio raíz. Si un paso falla o cancelas, se eliminan y el sitio raíz queda como estaba. Las cuentas no se restauran; cada subsitio nuevo recibe tu cuenta de administrador.",
+      "networkRestoreHint": "Primero se restaura el sitio raíz. Los subsitios nuevos siguen sin conexión hasta que se restauran todos los sitios. Si un paso falla o cancelas, se eliminan los subsitios nuevos y el sitio raíz vuelve a quedar como estaba.",
       "networkConfirmationPhrase": "RESTORE NETWORK",
       "networkRestore": "Restaurar red",
       "networkRestoring": "Restaurando la red…",
