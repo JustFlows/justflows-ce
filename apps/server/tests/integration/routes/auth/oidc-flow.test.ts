@@ -165,12 +165,22 @@ beforeAll(async () => {
 
   const site = express();
   site.use(express.json());
-  /** Fill `req.cookies` as the app's cookie parser does; the real CSRF guard then runs as in the app. */
+  /**
+   * Fill `req.cookies` with the cookies this flow uses, as the app's cookie
+   * parser does; the real CSRF guard then runs as in the app. Names come from
+   * this list, never from the request.
+   */
+  const COOKIE_NAMES = ["jf_csrf", "jf_session", "jf_oidc", "jf_oidc_pending"] as const;
   site.use((req, _res, next) => {
-    const cookies: Record<string, string> = {};
+    const sent = new Map<string, string>();
     for (const part of String(req.headers.cookie ?? "").split(";")) {
       const at = part.indexOf("=");
-      if (at > 0) cookies[part.slice(0, at).trim()] = decodeURIComponent(part.slice(at + 1).trim());
+      if (at > 0) sent.set(part.slice(0, at).trim(), decodeURIComponent(part.slice(at + 1).trim()));
+    }
+    const cookies: Record<string, string> = {};
+    for (const name of COOKIE_NAMES) {
+      const value = sent.get(name);
+      if (value !== undefined) cookies[name] = value;
     }
     (req as unknown as { cookies: Record<string, string> }).cookies = cookies;
     next();
