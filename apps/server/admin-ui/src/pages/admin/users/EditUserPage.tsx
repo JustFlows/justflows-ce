@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Link, useNavigate } from "../../../admin-router";
+import { Link, Navigate, useNavigate } from "../../../admin-router";
 import { useCapability, useSession } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
 import PersonalDataPanel from "./PersonalDataPanel";
+import { AccountSecuritySections } from "../security/AccountSecurityPage";
 
 interface User {
   id: string;
@@ -81,6 +82,9 @@ export default function EditUserPage() {
   const canManage = useCapability("users:manage");
   const { session } = useSession();
   const isAdministrator = session?.role === "administrator";
+  const canRead = useCapability("users:read");
+  /** The signed-in person's own page also holds their password, sessions, passkeys and two-factor. */
+  const ownAccount = Boolean(session?.id) && session?.id === id;
   const [resettingFactors, setResettingFactors] = useState(false);
 
   const [user, setUser] = useState<User | null>(null);
@@ -291,6 +295,9 @@ export default function EditUserPage() {
   // not something to stack. Administrator stays primary-only (server rule).
   const additionalChoices = (roles.length ? roles : ROLES.map((id) => ({ id, name: id, builtIn: true, pluginId: null })))
     .filter((entry) => (entry.builtIn || entry.pluginId) && entry.id !== "administrator" && entry.id !== role);
+
+  /** Without access to the user list, your own page is Users → Your account. */
+  if (ownAccount && !canRead) return <Navigate to="/admin/users/me" replace />;
 
   if (loading) {
     return (
@@ -592,7 +599,9 @@ export default function EditUserPage() {
           </div>
         )}
 
-        {canManage && (
+        {ownAccount && <AccountSecuritySections />}
+
+        {canManage && !ownAccount && (
         <div className="jf-card">
           <div className="jf-card__head">
             <h2 className="jf-card__title">{t("users.edit.password")}</h2>

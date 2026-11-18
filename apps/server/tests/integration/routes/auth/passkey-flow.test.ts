@@ -449,7 +449,7 @@ describe("per-role policy", () => {
     const res = await signIn(jar);
     expect(res.status).toBe(200);
     expect(res.body.passkeyEnrollmentRequired).toBe(true);
-    expect(res.body.redirectTo).toBe("/admin/security/account?enrol=passkey");
+    expect(res.body.redirectTo).toBe("/admin/users/me?enrol=passkey");
   });
 
   it("stops accepting an authenticator code once a required passkey exists, but keeps recovery codes", async () => {

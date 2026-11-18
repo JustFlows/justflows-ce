@@ -121,7 +121,7 @@ export interface SecurityCenterReport {
 }
 
 const UPDATES_HREF = "/admin/updates";
-const ACCOUNT_HREF = "/admin/security/account";
+const ACCOUNT_HREF = "/admin/users/me";
 const API_KEYS_HREF = "/admin/settings/api";
 const HEADERS_HREF = "/admin/security/headers";
 const BACKUP_HREF = "/admin/tools";

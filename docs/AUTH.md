@@ -161,7 +161,7 @@ path is never written into the page.
 
 ## Passkeys
 
-Staff add passkeys under **Security → Your account**, and members add them on the
+Staff add passkeys under **Users → Your account**, and members add them on the
 account page. A passkey can be a synced passkey (iCloud Keychain, Google Password
 Manager, a password manager), a device-bound one (Windows Hello, Touch ID), or a
 hardware security key. Adding or removing a passkey asks for the current
@@ -220,7 +220,7 @@ role without either can still sign in, but every admin API except `GET
 /api/auth/me` and the ones under `/api/auth/2fa`, `/api/auth/passkeys`,
 `/api/auth/password`, `/api/auth/sessions`, `/api/auth/identities` and
 `/api/auth/logout` answers `403` with the code `mfa_enrollment_required`. The
-admin shows a banner that links to **Security → Your account**. While the
+admin shows a banner that links to **Users → Your account**. While the
 policy covers the role, the account's last factor cannot be removed: turning off
 the authenticator app needs a passkey, and removing the last passkey needs the
 app. The policy is stored per site (`security.mfa`) and changes are audited as
@@ -249,7 +249,7 @@ by the email address in the ID token, which must be marked verified
 them. That links the subject to the account (`auth.identity_linked`), so a later
 change of address at the provider does not lose access, and a new person who
 gets an old address is not let in. Linked identities are listed under
-**Security → Your account**, where they can be unlinked. Password sign-in keeps
+**Users → Your account**, where they can be unlinked. Password sign-in keeps
 working, which is the way back in when the provider is down.
 
 **Second factors.** A provider sign-in counts as two-factor only when the ID

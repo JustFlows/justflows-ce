@@ -234,6 +234,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     icon: "👤",
     items: [
       { key: "nav.users", to: "/admin/users", icon: "👤" },
+      { key: "nav.usersAccount", to: "/admin/users/me", icon: "🔑" },
       { key: "nav.dataRequests", to: "/admin/data-requests", icon: "🔒" },
     ],
   },
@@ -276,7 +277,6 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.securityPasskeys", to: "/admin/security/passkeys", icon: "🗝" },
       { key: "nav.securityCustomCode", to: "/admin/security/custom-code", icon: "⌨" },
       { key: "nav.securitySignIn", to: "/admin/security/sign-in", icon: "🚪" },
-      { key: "nav.securityAccount", to: "/admin/security/account", icon: "🔑" },
       { key: "nav.securityAudit", to: "/admin/security/audit", icon: "📜" },
     ],
   },
@@ -475,6 +475,8 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/security/account": ALL_ADMIN_ROLES,
   "/admin/security/audit": ["administrator"],
   "/admin/users": ["administrator", "editor"],
+  /** Everyone's own account security, so it does not inherit the /admin/users rule. */
+  "/admin/users/me": ALL_ADMIN_ROLES,
   "/admin/data-requests": ["administrator"],
   "/admin/tools": ["administrator"],
   "/admin/health": ["administrator"],
