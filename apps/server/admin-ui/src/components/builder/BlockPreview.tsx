@@ -1,12 +1,21 @@
 import FunctionalBlock, { FUNCTIONAL_TYPES } from "./FunctionalBlock";
-import MediaBlock from "../MediaBlock";
+import ServerBlock, { SERVER_RENDERED_TYPES, type InlineEditorTag } from "./ServerBlock";
 import { useT } from "../../i18n/I18nProvider";
-import { cloneElement, createContext, isValidElement, useContext, useEffect, useState, type ReactElement } from "react";
+import { Component, Fragment, cloneElement, createContext, isValidElement, useContext, useEffect, useRef, useState, type ErrorInfo, type ReactElement, type ReactNode } from "react";
 import type { BlockNode } from "./types";
-import { esc, parseBlockStyle, renderMath, sanitizeHtmlBlock, sanitizeRichText } from "@justflows/blocks";
+import { blockStyleDeclarations, coreBlocks, isBlockLocked, presetRefOf, stylePresetClass, styleWithTemplateDefault, normalizeInlineValue, parseBlockStyle, sanitizeHtmlBlock, sanitizePluginPreviewHtml, INLINE_FIELD_ATTRIBUTE } from "@justflows/blocks";
+import { isExtendClick, useBuilderSelectionActions } from "./selection-context";
+import { useTemplateContext } from "./template-defaults-context";
+import { useCatalogEntry } from "./catalog-context";
+import { previewSubstitution } from "./preview-substitutions";
+import { reusablePreviewBlocks, useReusableStore } from "../../lib/reusable-blocks";
 import MotionPreview from "./MotionPreview";
 import { applyMergeTags, useMergeTags } from "../../lib/merge-tags";
-import { InlineEditable } from "./InlineEditable";
+import { requestBlockPreview } from "../../lib/block-preview-batch";
+import { MediaPickerPopover, readEditableText } from "./InlineEditable";
+import { InlineField, InlineFieldsContext, InlineLinkField } from "./inline-field";
+/** Builder-only styles load with the builder, not on every admin page (justflows-ce#310). */
+import "../../styles/builder.css";
 
 /** Class the active theme's stylesheet is scoped to (see `serveThemeCss`). */
 export const THEME_PREVIEW_SCOPE = "jf-theme-surface";
@@ -40,7 +49,8 @@ export function useThemePreviewStylesheet(): void {
       const link = document.createElement("link");
       link.id = THEME_PREVIEW_LINK_ID;
       link.rel = "stylesheet";
-      link.href = `/theme.css?preview=1&scope=.${THEME_PREVIEW_SCOPE}`;
+      /** `widths=canvas`: the theme's width media queries follow the canvas (justflows-ce#300). */
+      link.href = `/theme.css?preview=1&scope=.${THEME_PREVIEW_SCOPE}&widths=canvas`;
       document.head.appendChild(link);
     }
     return () => {
@@ -48,6 +58,15 @@ export function useThemePreviewStylesheet(): void {
       if (themePreviewMounts <= 0) document.getElementById(THEME_PREVIEW_LINK_ID)?.remove();
     };
   }, []);
+}
+
+/** Reload the canvas theme sheet after a draft token or preset change, so the canvas shows the server's truth. */
+export function reloadThemePreviewStylesheet(): void {
+  const link = document.getElementById(THEME_PREVIEW_LINK_ID) as HTMLLinkElement | null;
+  if (!link) return;
+  const url = new URL(link.href, window.location.href);
+  url.searchParams.set("_", String(Date.now()));
+  link.href = url.toString();
 }
 
 interface BlockPreviewProps {
@@ -60,7 +79,71 @@ interface BlockPreviewProps {
   onUpdateProps?: (id: string, props: Record<string, unknown>) => void;
 }
 
-export function BlockPreview({
+/**
+ * One block on the canvas, isolated (justflows-ce#306): if drawing it throws,
+ * only this block shows a notice with Try again. The rest of the builder keeps
+ * working, and the block's stored data is never changed. A later edit to the
+ * block, or Try again, draws it again.
+ */
+export function BlockPreview(props: BlockPreviewProps) {
+  const { block } = props;
+  return (
+    <BlockPreviewBoundary resetKey={`${block.type}:${block.version}:${JSON.stringify(block.props)}`} block={block} onSelect={props.onSelect}>
+      <BlockPreviewContent {...props} />
+    </BlockPreviewBoundary>
+  );
+}
+
+class BlockPreviewBoundary extends Component<
+  { resetKey: string; block: BlockNode; onSelect?: (id: string) => void; children: ReactNode },
+  { failed: boolean; attempt: number }
+> {
+  state = { failed: false, attempt: 0 };
+
+  static getDerivedStateFromError(): Partial<{ failed: boolean }> {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error(`[builder] block ${this.props.block.type} (${this.props.block.id}) could not be drawn`, error, info.componentStack);
+  }
+
+  componentDidUpdate(previous: { resetKey: string }): void {
+    if (this.state.failed && previous.resetKey !== this.props.resetKey) this.setState({ failed: false });
+  }
+
+  render() {
+    if (!this.state.failed) return <Fragment key={this.state.attempt}>{this.props.children}</Fragment>;
+    return (
+      <BlockPreviewFailure
+        block={this.props.block}
+        onSelect={this.props.onSelect}
+        onRetry={() => this.setState((s) => ({ failed: false, attempt: s.attempt + 1 }))}
+      />
+    );
+  }
+}
+
+function BlockPreviewFailure({ block, onSelect, onRetry }: { block: BlockNode; onSelect?: (id: string) => void; onRetry: () => void }) {
+  const { t } = useT();
+  return (
+    <div
+      className="jf-plugin-preview jf-plugin-preview--error"
+      role="note"
+      data-jf-block-preview={block.id}
+      data-jf-block-failed={block.type}
+      onClick={onSelect ? (e) => { e.stopPropagation(); onSelect(block.id); } : undefined}
+    >
+      <strong>{t("builder.blockFailure.title", { type: block.type })}</strong>
+      <span>{t("builder.blockFailure.kept")}</span>
+      <button type="button" className="jf-btn jf-btn--ghost jf-btn--sm" data-builder-chrome="true" onClick={(e) => { e.stopPropagation(); onRetry(); }}>
+        {t("builder.pluginPreview.retry")}
+      </button>
+    </div>
+  );
+}
+
+function BlockPreviewContent({
   block,
   depth = 0,
   onSelect,
@@ -70,11 +153,23 @@ export function BlockPreview({
 }: BlockPreviewProps) {
   const { t, locale } = useT();
   const scheme = usePreviewScheme();
-  const p = block.props;
+  const p = canvasProps(block);
   const tags = useMergeTags();
   const text = (value: unknown) => applyMergeTags(String(value ?? ""), tags);
   const isSelected = selectedId === block.id;
-  const blockStyle = parseBlockStyle(p.style);
+  const selection = useBuilderSelectionActions();
+  /** Declared inline fields are editable while their block is selected, unless it is edit-locked. */
+  const active = Boolean(isSelected && onUpdateProps && !isBlockLocked(block, "edit"));
+  const commitProps = (next: Record<string, unknown>) => onUpdateProps?.(block.id, next);
+  const [mediaPicker, setMediaPicker] = useState<{
+    top: number;
+    left: number;
+    kind?: "image" | "video" | "audio" | "file";
+    prop?: string;
+  } | null>(null);
+  /** The template's default for this type sits beneath the block's own style, as on the page (justflows-ce#301). */
+  const templateContext = useTemplateContext();
+  const blockStyle = parseBlockStyle(styleWithTemplateDefault(p, templateContext?.defaults, block.type));
 
   // Per-instance colours (Layout panel) and theme-token overrides (Theme
   // styling panel). The server writes these onto the block's *own* root
@@ -82,51 +177,78 @@ export function BlockPreview({
   // theme's `.jf-hero { background: … }`. Do the same here — merge them onto
   // the element each case returns, not an outer wrapper — or the theme's
   // striped hero background (and friends) would still show through.
-  const chromeStyle: React.CSSProperties = {
-    ...(blockStyle.background ? { background: blockStyle.background } : {}),
-    ...(blockStyle.textColor ? { color: blockStyle.textColor } : {}),
-    ...(blockStyle.accent ? { ["--jf-block-accent" as string]: blockStyle.accent } : {}),
-    ...(blockStyle.opacity ? { opacity: Number(blockStyle.opacity) / 100 } : {}),
-    ...(blockStyle.vars as Record<string, string>),
-  };
+  /**
+   * Since justflows-ce#299 this is the full style contract (spacing, size,
+   * flex item values, colours), parsed from the same declarations the public
+   * renderer writes, so the canvas, its resize handles and the page agree.
+   */
+  const chromeStyle = declarationsToStyle(blockStyleDeclarations(blockStyle));
   const hasChrome = Object.keys(chromeStyle).length > 0;
+  /** A named preset is a class defined in the theme sheet, same as on the page (justflows-ce#301). */
+  const presetClass = stylePresetClass(presetRefOf(p));
 
-  const wrap = (content: React.ReactNode, label?: string) => {
-    const inner = isValidElement(content)
-      ? cloneElement(
-          content as ReactElement<{
-            style?: React.CSSProperties;
-            "data-jf-block-preview"?: string;
-          }>,
-          {
-            "data-jf-block-preview": block.id,
-            ...(hasChrome ? { style: { ...(content.props.style ?? {}), ...chromeStyle } } : {}),
-          },
-        )
-      : content;
+  /** A deliberate stand-in for what the page fills in when served is labelled as one (justflows-ce#306). */
+  const substitution = previewSubstitution(block.type);
+  /** `ownChrome`: the content puts the chrome on its own root (ServerBlock), so no box is added. */
+  const wrap = (content: React.ReactNode, label?: string, ownChrome = false) => {
+    /**
+     * A DOM element takes the chrome directly. A component root (an inline
+     * field) cannot forward it, so it gets a box of its own; otherwise its
+     * spacing and colours would silently not show.
+     */
+    const inner = ownChrome
+      ? content
+      : isValidElement(content) && typeof content.type === "string"
+        ? cloneElement(
+            content as ReactElement<{
+              style?: React.CSSProperties;
+              className?: string;
+              "data-jf-block-preview"?: string;
+            }>,
+            {
+              "data-jf-block-preview": block.id,
+              ...(presetClass
+                ? { className: [(content.props as { className?: string }).className, presetClass].filter(Boolean).join(" ") }
+                : {}),
+              ...(hasChrome ? { style: { ...((content.props as { style?: React.CSSProperties }).style ?? {}), ...chromeStyle } } : {}),
+            },
+          )
+        : (
+            <div data-jf-block-preview={block.id} className={presetClass || undefined} style={hasChrome ? chromeStyle : undefined}>
+              {content}
+            </div>
+          );
     return (
       <div
         className={depth === 0 ? THEME_PREVIEW_SCOPE : undefined}
         data-theme={depth === 0 ? scheme : undefined}
+        data-jf-stand-in={substitution}
         onClick={
           onSelect
             ? (e) => {
                 e.stopPropagation();
+                if (selection && isExtendClick(e) && selection.extend(block.id, e)) return;
                 onSelect(block.id);
               }
             : undefined
         }
         style={{
+          /**
+           * Each block is a containing block, so absolutely positioned content
+           * from theme or plugin CSS (a stretched card link) stays inside it
+           * instead of covering other blocks and the builder's own controls.
+           */
+          position: "relative",
           borderRadius: 4,
           cursor: onSelect ? "pointer" : undefined,
-          maxWidth: blockStyle.maxWidth > 0 ? `min(100%, ${blockStyle.maxWidth}px)` : undefined,
-          maxHeight: blockStyle.maxHeight > 0 ? blockStyle.maxHeight : undefined,
-          overflow: blockStyle.maxHeight > 0 ? "auto" : undefined,
-          marginLeft: blockStyle.maxWidth > 0 ? "auto" : undefined,
-          marginRight: blockStyle.maxWidth > 0 ? "auto" : undefined,
         }}
       >
         {label && depth === 0 ? null : null}
+        {substitution && (
+          <span className="jf-preview-stand-in" data-builder-chrome="true" title={t(`builder.preview.standIn.${substitution}`)}>
+            {t("builder.preview.standIn.label")}
+          </span>
+        )}
         <MotionPreview blockId={block.id} animation={p.animation}>
           {inner}
         </MotionPreview>
@@ -134,6 +256,123 @@ export function BlockPreview({
     );
   };
 
+  /** Drawn by the public renderer itself (justflows-ce#311). */
+  if (SERVER_RENDERED_TYPES.has(block.type)) {
+    const fieldsHere = INLINE_FIELD_TEXT[block.type];
+    const serverProps = fieldsHere ? inlineServerProps(block.type, p, active, t, text) : block.type === "core.html" ? { ...p, html: text(p.html) } : p;
+    const inlineEditor =
+      fieldsHere && active
+        ? (field: string, as: InlineEditorTag) => {
+            const copy = fieldsHere[field];
+            if (!copy) return null;
+            return (
+              <InlineField block={block} field={field} active={active} as={as} placeholder={t(copy.placeholder)} label={copy.label ? t(copy.label) : undefined} onCommit={commitProps}>
+                {null}
+              </InlineField>
+            );
+          }
+        : undefined;
+    /**
+     * Media replacement (justflows-ce#297) around the page's markup: double-click
+     * the media, or use the Replace button, which is the keyboard control.
+     */
+    const mediaKind = MEDIA_KIND[block.type];
+    const hasSrc = typeof p.src === "string" && p.src !== "";
+    const openMedia = (el: HTMLElement, prop: "src" | "poster" = "src") => {
+      const rect = el.getBoundingClientRect();
+      setMediaPicker({ top: rect.bottom + 4, left: rect.left, kind: prop === "poster" ? "image" : mediaKind, prop });
+    };
+    const mediaHint =
+      !mediaKind || hasSrc ? undefined
+      : mediaKind !== "image" ? <div className="jf-media-placeholder">{t("builder.media.addUrl")}</div>
+      : active ? (
+          <div
+            role="button"
+            tabIndex={0}
+            className="jf-media-placeholder"
+            onClick={(e) => openMedia(e.currentTarget)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openMedia(e.currentTarget);
+              }
+            }}
+          >
+            {t("builder.inline.chooseImage")}
+          </div>
+        )
+      : <div className="jf-media-placeholder">{t("builder.preview.noImage")}</div>;
+    const server = (
+      <ServerBlock
+        type={block.type}
+        props={serverProps}
+        hint={mediaHint ?? serverBlockHint(block.type, serverProps, t)}
+        blockId={block.id}
+        rootClass={presetClass || undefined}
+        rootDeclarations={[blockStyleDeclarations(blockStyle), block.type === "core.grid" && onUpdateProps ? "display:block" : ""].filter(Boolean).join(";") || undefined}
+        inline={inlineEditor}
+      >
+        {renderChildren?.(block.children ?? [], depth + 1) ?? emptyContainerHint(block.type, t)}
+      </ServerBlock>
+    );
+    return wrap(
+      <>
+      {mediaKind && active ? (
+        <div title={hasSrc ? t("builder.inline.replaceMediaHint") : undefined} onDoubleClick={hasSrc ? (e) => openMedia(e.currentTarget) : undefined}>
+          {server}
+        </div>
+      ) : (
+        server
+      )}
+      {mediaKind && active && (
+        <>
+          {mediaPicker?.prop && (
+            <MediaPickerPopover
+              kind={mediaPicker.kind ?? mediaKind}
+              top={mediaPicker.top}
+              left={mediaPicker.left}
+              onInsert={(url) => {
+                const prop = mediaPicker.prop!;
+                setMediaPicker(null);
+                commitProps({ ...p, [prop]: url });
+              }}
+              onClose={() => setMediaPicker(null)}
+            />
+          )}
+          <div className="jf-inline-media-bar" data-builder-chrome="true">
+            <button type="button" className="jf-btn jf-btn--sm" onClick={(e) => openMedia(e.currentTarget)}>
+              {mediaKind === "image" ? t("builder.inline.replaceImage") : t(`builder.inline.replace.${mediaKind}`)}
+            </button>
+            {mediaKind === "video" && (
+              <button type="button" className="jf-btn jf-btn--sm" onClick={(e) => openMedia(e.currentTarget, "poster")}>
+                {(p.poster as string) ? t("builder.inline.changePoster") : t("builder.inline.choosePoster")}
+              </button>
+            )}
+            {mediaKind === "video" && (p.poster as string) && (
+              <button type="button" className="jf-btn jf-btn--sm" onClick={() => commitProps({ ...p, poster: "" })}>
+                {t("builder.inline.removePoster")}
+              </button>
+            )}
+          </div>
+          {/** Alt text is not shown on the page, so it is edited beside the image. */}
+          {mediaKind === "image" && hasSrc && (
+            <div className="jf-inline-alt" data-builder-chrome="true">
+              <span aria-hidden="true">{t("builder.inline.altText")}:</span>
+              <InlineField block={block} field="alt" active={active} as="span" placeholder={t("builder.inline.altPlaceholder")} label={t("builder.inline.altText")} onCommit={commitProps}>
+                {null}
+              </InlineField>
+            </div>
+          )}
+        </>
+      )}
+      {block.type === "core.button" && active && (
+        <InlineLinkField value={typeof p.url === "string" ? p.url : ""} label={t("builder.inline.buttonLink")} onCommit={(url) => commitProps({ ...p, url })} />
+      )}
+      </>,
+      undefined,
+      true,
+    );
+  }
   if (FUNCTIONAL_TYPES.has(block.type)) return wrap(<FunctionalBlock type={block.type} props={p}>{renderChildren?.(block.children ?? [], depth + 1)}</FunctionalBlock>);
 
   switch (block.type) {
@@ -145,300 +384,6 @@ export function BlockPreview({
         <button type="button" disabled>{label}</button>
       </div>);
     }
-    case "core.section": {
-      const bg = (p.background as string) || "default";
-      const pad = (p.padding as string) || "lg";
-      const align = (p.align as string) === "center" ? "center" : "left";
-      return wrap(
-        <section
-          className={`jf-section jf-section--bg-${bg} jf-section--pad-${pad} jf-section--align-${align}`}
-        >
-          <div className="jf-section__inner">
-            {renderChildren?.(block.children ?? [], depth + 1) ?? (
-              <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem", padding: "0.5rem" }}>
-                {t("builder.preview.emptySectionAddBlocks")}
-              </div>
-            )}
-          </div>
-        </section>,
-      );
-    }
-
-    case "core.container":
-      return wrap(
-        <div className={`jf-container jf-container--${(p.width as string) || "default"}`}>
-          {renderChildren?.(block.children ?? [], depth + 1) ?? (
-            <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem", padding: "0.5rem" }}>
-              {t("builder.preview.emptyContainer")}
-            </div>
-          )}
-        </div>,
-      );
-
-    case "core.group":
-      return wrap(
-        <div className="jf-group">{renderChildren?.(block.children ?? [], depth + 1)}</div>,
-      );
-
-    case "core.columns": {
-      const cols = (p.columns as number) ?? 2;
-      const gap = (p.gap as string) || "md";
-      return wrap(
-        <div
-          className={`jf-columns jf-columns--${cols} jf-columns--gap-${gap}`}
-          style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, alignItems: "start" }}
-        >
-          {renderChildren?.(block.children ?? [], depth + 1)}
-        </div>,
-      );
-    }
-
-    case "core.column":
-      return wrap(
-        <div className="jf-column" style={{ minHeight: 72 }}>
-          {renderChildren?.(block.children ?? [], depth + 1) ?? (
-            <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.75rem" }}>{t("builder.preview.dropContentHere")}</div>
-          )}
-        </div>,
-      );
-
-    case "core.hero": {
-      const align = (p.align as string) === "center" ? "center" : "left";
-      const bgImage = p.backgroundImage as string;
-      return wrap(
-        <section
-          className={`jf-hero jf-hero--align-${align}`}
-          style={bgImage ? { backgroundImage: `url(${bgImage})` } : undefined}
-        >
-          <div className="jf-hero__inner">
-            <h1 className="jf-hero__heading">{(p.heading as string) || t("builder.preview.heroHeading")}</h1>
-            {(p.subheading as string) && <p className="jf-hero__sub">{p.subheading as string}</p>}
-            {(p.buttonLabel as string) && (
-              <span className="btn btn--primary jf-hero__btn">{p.buttonLabel as string}</span>
-            )}
-          </div>
-        </section>,
-      );
-    }
-
-    case "core.features": {
-      const items = (p.items as Array<{ icon: string; title: string; description: string }>) ?? [];
-      const cols = (p.columns as number) ?? 3;
-      return wrap(
-        <section className="jf-features">
-          <div className="jf-container jf-container--wide">
-            {(p.heading as string) && (
-              <h2 className="jf-features__heading">{p.heading as string}</h2>
-            )}
-            <div
-              className={`jf-features__grid jf-features__grid--${cols}`}
-              style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-            >
-              {items.map((item, i) => (
-                <div key={i} className="jf-feature">
-                  <span className="jf-feature__icon">{item.icon}</span>
-                  <h3 className="jf-feature__title">{item.title || t("builder.preview.feature")}</h3>
-                  <p className="jf-feature__desc">{item.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>,
-      );
-    }
-
-    case "core.cta": {
-      const variant = (p.variant as string) || "default";
-      return wrap(
-        <section className={`jf-cta jf-cta--${variant}`}>
-          <div className="jf-container jf-container--default">
-            <h2 className="jf-cta__heading">{(p.heading as string) || t("builder.preview.callToAction")}</h2>
-            {(p.text as string) && <p className="jf-cta__text">{p.text as string}</p>}
-            {(p.buttonLabel as string) && (
-              <span className="btn btn--primary jf-cta__btn">{p.buttonLabel as string}</span>
-            )}
-          </div>
-        </section>,
-      );
-    }
-
-    case "core.paragraph":
-      if (isSelected && onUpdateProps) {
-        return wrap(
-          <InlineEditable
-            as="div"
-            className="jf-paragraph"
-            value={typeof p.text === "string" ? p.text : ""}
-            placeholder={t("builder.preview.typeAParagraph")}
-            onCommit={(html) => onUpdateProps(block.id, { ...p, text: html })}
-          />,
-        );
-      }
-      return wrap(
-        <div
-          className="jf-paragraph"
-          dangerouslySetInnerHTML={{
-            __html:
-              renderMath(sanitizeRichText(text(p.text))) ||
-              `<em style='color:var(--color-muted, var(--jf-text-3))'>${esc(t("builder.preview.emptyParagraph"))}</em>`,
-          }}
-        />,
-      );
-
-    case "core.heading": {
-      const Tag = `h${Math.min(6, Math.max(1, (p.level as number) ?? 2))}` as
-        "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
-      if (isSelected && onUpdateProps) {
-        return wrap(
-          <InlineEditable
-            as={Tag}
-            mode="plain"
-            value={typeof p.text === "string" ? p.text : ""}
-            placeholder={t("builder.preview.heading")}
-            onCommit={(value) => onUpdateProps(block.id, { ...p, text: value })}
-          />,
-        );
-      }
-      const heading = text(p.text);
-      return wrap(<Tag>{heading || <em style={{ color: "var(--color-muted, var(--jf-text-3))" }}>{t("builder.preview.heading")}</em>}</Tag>);
-    }
-
-    case "core.video":
-    case "core.audio":
-    case "core.file":
-      return wrap(<MediaBlock type={block.type} props={p} preview />);
-
-    case "core.image":
-      return wrap(
-        (p.src as string) ? (
-          <figure style={{ margin: 0 }}>
-            <img
-              src={p.src as string}
-              alt={(p.alt as string) ?? ""}
-              style={{
-                display: "block",
-                width: Number(p.width) > 0 ? Number(p.width) : undefined,
-                height: Number(p.height) > 0 ? Number(p.height) : undefined,
-                maxWidth: "100%",
-                objectFit:
-                  Number(p.height) > 0
-                    ? (p.objectFit as "contain" | "cover" | "fill") || "contain"
-                    : undefined,
-                borderRadius: 6,
-              }}
-            />
-            {(p.caption as string) ? (
-              <figcaption
-                style={{ fontSize: "0.8rem", color: "var(--color-muted, var(--jf-text-3))", marginTop: "0.25rem" }}
-              >
-                {p.caption as string}
-              </figcaption>
-            ) : null}
-          </figure>
-        ) : (
-          <div
-            style={{
-              background: "var(--color-surface, var(--jf-surface-3))",
-              padding: "1.5rem",
-              borderRadius: 6,
-              textAlign: "center",
-              color: "var(--color-muted, var(--jf-text-3))",
-            }}
-          >
-            {t("builder.preview.noImage")}</div>
-        ),
-      );
-
-    case "core.quote":
-      if (isSelected && onUpdateProps) {
-        return wrap(
-          <blockquote>
-            <InlineEditable
-              as="div"
-              className="jf-quote__text"
-              value={typeof p.text === "string" ? p.text : ""}
-              placeholder={t("builder.preview.quote")}
-              onCommit={(html) => onUpdateProps(block.id, { ...p, text: html })}
-            />
-            {(p.attribution as string) ? <cite>— {p.attribution as string}</cite> : null}
-          </blockquote>,
-        );
-      }
-      return wrap(
-        <blockquote>
-          <div
-            className="jf-quote__text"
-            dangerouslySetInnerHTML={{
-              __html:
-                renderMath(sanitizeRichText((p.text as string) || "")) ||
-                `<em style='color:var(--color-muted, var(--jf-text-3))'>${esc(t("builder.preview.quote"))}</em>`,
-            }}
-          />
-          {(p.attribution as string) ? <cite>— {p.attribution as string}</cite> : null}
-        </blockquote>,
-      );
-
-    case "core.button":
-      return wrap(
-        <span className={`btn btn--${(p.variant as string) || "primary"}`}>
-          {(p.label as string) || t("builder.preview.button")}
-        </span>,
-      );
-
-    case "core.link-list": {
-      const items = (p.items as Array<{ label: string; url: string }>) ?? [];
-      return wrap(
-        <div className="jf-link-list">
-          {(p.heading as string) && (
-            <h3 className="jf-link-list__heading">{p.heading as string}</h3>
-          )}
-          {items.length === 0 ? (
-            <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem" }}>{t("builder.preview.noLinksYet")}</div>
-          ) : (
-            <ul className="jf-link-list__items">
-              {items.map((item, i) => (
-                <li key={i}>
-                  <span className="jf-link-list__link">{item.label || item.url || t("builder.preview.link")}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>,
-      );
-    }
-
-    case "core.divider":
-      return wrap(<hr />);
-
-    case "core.spacer":
-      return wrap(
-        <div
-          style={{
-            height: `${(p.height as number) ?? 40}px`,
-            background:
-              "repeating-linear-gradient(45deg, var(--color-bg, var(--jf-surface-2)), var(--color-bg, var(--jf-surface-2)) 5px, var(--color-surface, var(--jf-surface-3)) 5px, var(--color-surface, var(--jf-surface-3)) 10px)",
-            borderRadius: 4,
-          }}
-        />,
-      );
-
-    case "core.code":
-      return wrap(
-        <pre
-          style={{
-            margin: 0,
-            padding: "0.75rem",
-            background: "var(--color-text, var(--jf-text))",
-            color: "var(--color-bg, var(--jf-surface))",
-            borderRadius: 4,
-            fontSize: "0.8rem",
-            overflow: "auto",
-          }}
-        >
-          <code>{(p.code as string) || "// code"}</code>
-        </pre>,
-      );
-
     case "core.embed":
       return wrap(
         <div
@@ -453,21 +398,6 @@ export function BlockPreview({
         >
           {t("builder.preview.embed")}{(p.url as string) || t("builder.preview.noURL")}
         </div>,
-      );
-
-    case "core.html":
-      return wrap(
-        <div
-          className="jf-html"
-          dangerouslySetInnerHTML={{
-            __html: sanitizeHtmlBlock(text(p.html)) || `<p>${esc(t("builder.preview.html"))}</p>`,
-          }}
-        />,
-      );
-
-    case "core.grid":
-      return wrap(
-        renderChildren ? <>{renderChildren(block.children ?? [], depth + 1)}</> : <div />,
       );
 
     case "core.color-scheme": {
@@ -755,6 +685,9 @@ export function BlockPreview({
           {t("builder.preview.postContentThePageOrPostSOwnBlocksRender")}</div>,
       );
 
+    case "core.reusable":
+      return wrap(<ReusableReferencePreview refId={String(p.ref ?? "")} depth={depth} />);
+
     case "core.template-part":
       return wrap(
         <div
@@ -771,7 +704,9 @@ export function BlockPreview({
       );
 
     default:
-      if (!block.type.startsWith("core.")) return wrap(<PluginBlockPreview type={block.type} props={p} />);
+      if (!block.type.startsWith("core.")) {
+        return wrap(<PluginBlockPreview type={block.type} props={p} active={active} onCommit={commitProps} version={block.version} />);
+      }
       return wrap(
         <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem" }}>{block.type}</div>,
       );
@@ -779,39 +714,329 @@ export function BlockPreview({
 }
 
 /**
+ * In-place fields of the server-rendered blocks, with the canvas copy for each:
+ * the placeholder an empty field shows and, where it differs, the editor's label.
+ */
+const INLINE_FIELD_TEXT: Record<string, Record<string, { placeholder: string; label?: string; shownWhenEmpty?: boolean }>> = {
+  "core.heading": { text: { placeholder: "builder.preview.heading", shownWhenEmpty: true } },
+  "core.paragraph": { text: { placeholder: "builder.preview.typeAParagraph", shownWhenEmpty: true } },
+  "core.quote": { text: { placeholder: "builder.preview.quote", shownWhenEmpty: true }, attribution: { placeholder: "builder.inline.attribution" } },
+  "core.button": { label: { placeholder: "builder.preview.button", label: "builder.inline.buttonLabel", shownWhenEmpty: true } },
+  "core.hero": { heading: { placeholder: "builder.preview.heroHeading", shownWhenEmpty: true }, subheading: { placeholder: "builder.inline.supportingText" }, buttonLabel: { placeholder: "builder.preview.button", label: "builder.inline.buttonLabel" } },
+  "core.cta": { heading: { placeholder: "builder.preview.callToAction", shownWhenEmpty: true }, text: { placeholder: "builder.inline.supportingText" }, buttonLabel: { placeholder: "builder.preview.button", label: "builder.inline.buttonLabel" } },
+  "core.list-item": { text: { placeholder: "builder.inline.listItem" } },
+  "core.image": { caption: { placeholder: "builder.inline.caption" } },
+  "core.video": { caption: { placeholder: "builder.inline.caption" } },
+  "core.audio": { caption: { placeholder: "builder.inline.caption" } },
+  "core.file": { label: { placeholder: "builder.inline.linkTextPlaceholder", label: "builder.inline.linkText" }, caption: { placeholder: "builder.inline.caption" } },
+};
+
+/** Media blocks and what their Replace button picks from the library. */
+const MEDIA_KIND: Record<string, "image" | "video" | "audio" | "file"> = {
+  "core.image": "image",
+  "core.video": "video",
+  "core.audio": "audio",
+  "core.file": "file",
+};
+
+/** Stands in for a field while its editor is open, so the element exists and the markup does not change under the editor. */
+const EDITING_STAND_IN = "\u200b";
+
+/**
+ * The props a block with in-place fields is rendered with on the canvas
+ * (justflows-ce#311). While it is selected, every field is a stand-in, so the
+ * renderer draws each element (also empty optional ones, and a button with no
+ * link yet) and a commit does not redraw the markup under an editor. When it
+ * is not selected, a required field that is empty shows its placeholder, so
+ * the block can still be found; merge tags are filled in as before.
+ */
+function inlineServerProps(type: string, p: Record<string, unknown>, active: boolean, t: (key: string) => string, fill: (value: unknown) => string): Record<string, unknown> {
+  const fields = INLINE_FIELD_TEXT[type] ?? {};
+  const out: Record<string, unknown> = { ...p };
+  for (const [field, copy] of Object.entries(fields)) {
+    if (active) out[field] = EDITING_STAND_IN;
+    else if (typeof p[field] === "string" && p[field]) out[field] = fill(p[field]);
+    else if (copy.shownWhenEmpty) out[field] = t(copy.placeholder);
+  }
+  if (active && (type === "core.hero" || type === "core.cta") && !p.buttonUrl) out.buttonUrl = "#";
+  return out;
+}
+
+/** Shown inside a layout container drawn without its child rows (a read-only preview). */
+function emptyContainerHint(type: string, t: (key: string) => string): React.ReactNode {
+  const key = type === "core.section" ? "builder.preview.emptySectionAddBlocks" : type === "core.container" ? "builder.preview.emptyContainer" : type === "core.column" ? "builder.preview.dropContentHere" : null;
+  return key ? <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem", padding: "0.5rem" }}>{t(key)}</div> : null;
+}
+
+/**
+ * What an empty server-rendered block shows on the canvas, so it can still be
+ * found and selected (justflows-ce#311). Undefined when it has content.
+ */
+function serverBlockHint(type: string, p: Record<string, unknown>, t: (key: string) => string): React.ReactNode {
+  const muted = { color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem" };
+  if (type === "core.code" && !String(p.code ?? "").trim()) return <pre><code>{"// code"}</code></pre>;
+  if (type === "core.html" && !sanitizeHtmlBlock(String(p.html ?? "")).trim()) return <div className="jf-html"><p>{t("builder.preview.html")}</p></div>;
+  if (type === "core.link-list" && !(Array.isArray(p.items) && p.items.length)) return <div className="jf-link-list" style={muted}>{t("builder.preview.noLinksYet")}</div>;
+  return undefined;
+}
+
+const CORE_DEFINITIONS = new Map(coreBlocks.map((definition) => [definition.type, definition]));
+
+/**
+ * The props a core block shows on the canvas: its stored props, with
+ * everything its own `validateProps` returns on top, as the public renderer
+ * uses them (justflows-ce#306). Missing values then get the same defaults on
+ * the canvas as on the page; editor-only props (style, animation, editor
+ * metadata) that `validateProps` does not return are kept. Inline editing
+ * still reads and writes the stored props.
+ */
+function canvasProps(block: BlockNode): Record<string, unknown> {
+  const definition = CORE_DEFINITIONS.get(block.type);
+  if (!definition) return block.props;
+  try {
+    return { ...block.props, ...(definition.validateProps(block.props) as Record<string, unknown>) };
+  } catch {
+    return block.props;
+  }
+}
+
+/** References being expanded above this one, so a stored cycle renders once instead of looping. */
+const ReusableStackContext = createContext<readonly string[]>([]);
+
+/**
+ * A linked reusable block on the canvas (justflows-ce#304): its content,
+ * read-only, under a chip naming the source. The canvas shows the draft when
+ * there is one, like a preview; the chip says so. A deleted source, a cycle,
+ * or a too-deep chain shows a recoverable placeholder instead of nothing.
+ */
+function ReusableReferencePreview({ refId, depth }: { refId: string; depth: number }) {
+  const { t } = useT();
+  const { items, loaded } = useReusableStore();
+  const stack = useContext(ReusableStackContext);
+  const item = items.find((entry) => entry.id === refId);
+  if (!loaded) return <div className="jf-reusable-ref jf-reusable-ref--empty">{t("builder.reusable.usageLoading")}</div>;
+  if (!item) {
+    return (
+      <div className="jf-reusable-ref jf-reusable-ref--missing" role="note">
+        {refId ? t("builder.reusable.missingRecover") : t("builder.reusable.notChosen")}
+      </div>
+    );
+  }
+  if (stack.includes(refId) || stack.length >= 4) {
+    return (
+      <div className="jf-reusable-ref jf-reusable-ref--missing" role="note">
+        {t("builder.reusable.nestingStopped", { name: item.name })}
+      </div>
+    );
+  }
+  const render = (blocks: BlockNode[], childDepth: number): React.ReactNode =>
+    blocks.map((child) => <BlockPreview key={child.id} block={child} depth={childDepth} renderChildren={render} />);
+  return (
+    <div className="jf-reusable-ref" data-reusable-ref={refId}>
+      <span className="jf-reusable-ref__chip">
+        <span aria-hidden="true">♻</span> {t("builder.reusable.linkedChip", { name: item.draft?.name ?? item.name })}
+        {item.draft && <span className="jf-reusable-ref__draft"> · {t("builder.reusable.draftChip")}</span>}
+      </span>
+      <ReusableStackContext.Provider value={[...stack, refId]}>
+        <div className="jf-reusable-ref__body" inert>
+          {render(reusablePreviewBlocks(item), depth + 1)}
+        </div>
+      </ReusableStackContext.Provider>
+    </div>
+  );
+}
+
+/**
  * A plugin block the builder has no preview for: show the block's own server
  * render, sanitized like an HTML block. Re-asked after edits settle; falls back
  * to the block type while loading or when the render fails.
  */
-function PluginBlockPreview({ type, props }: { type: string; props: Record<string, unknown> }) {
-  const [html, setHtml] = useState<string | null>(null);
+function PluginBlockPreview({
+  type,
+  props,
+  active = false,
+  onCommit,
+  version,
+}: {
+  type: string;
+  props: Record<string, unknown>;
+  active?: boolean;
+  onCommit?: (props: Record<string, unknown>) => void;
+  /** The stored block version, so the server can upgrade old props before rendering. */
+  version?: number;
+}) {
+  const { t } = useT();
+  const entry = useCatalogEntry(type);
+  /**
+   * A plugin preview is isolated from the canvas (justflows-ce#305): it loads
+   * at a reserved height, gives up after `PREVIEW_TIMEOUT_MS`, and every
+   * outcome (empty, failed, unavailable, placeholder) is a visible, recoverable
+   * state instead of a blank block.
+   */
+  const [state, setState] = useState<{ status: "loading" | "ready" | "empty" | "error" | "timeout" | "unavailable" | "placeholder"; html: string; migrationFailed?: boolean }>({
+    status: "loading",
+    html: "",
+  });
+  const [attempt, setAttempt] = useState(0);
+  const html = state.status === "ready" ? state.html : null;
+  const container = useRef<HTMLDivElement | null>(null);
+  const fields = useContext(InlineFieldsContext).get(type);
   const key = JSON.stringify(props);
+  const placeholderMode = entry?.preview?.mode === "placeholder";
   useEffect(() => {
+    if (placeholderMode) {
+      setState({ status: "placeholder", html: "" });
+      return;
+    }
     let cancelled = false;
+    const controller = new AbortController();
+    let timedOut = false;
     const timer = setTimeout(() => {
-      fetch("/api/blocks/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, props: JSON.parse(key) as unknown }),
-      })
-        .then((res) => (res.ok ? (res.json() as Promise<{ html?: string }>) : null))
-        .then((body) => {
-          if (!cancelled) setHtml(body && typeof body.html === "string" ? sanitizeHtmlBlock(body.html) : "");
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, PREVIEW_TIMEOUT_MS);
+      /** Batched with other previews and cached per type, version and props (justflows-ce#308). */
+      requestBlockPreview({ type, props: JSON.parse(key) as unknown, ...(version ? { version } : {}) }, controller.signal)
+        .then(({ status, body }) => {
+          clearTimeout(timeout);
+          if (cancelled) return;
+          if (status === 404) return setState({ status: "unavailable", html: "" });
+          if (status >= 400) return setState({ status: "error", html: "" });
+          if (body.placeholder) return setState({ status: "placeholder", html: "" });
+          const clean = typeof body.html === "string" ? sanitizePluginPreviewHtml(body.html) : "";
+          setState({ status: clean.trim() ? "ready" : "empty", html: clean, ...(body.migrationFailed ? { migrationFailed: true } : {}) });
         })
         .catch(() => {
-          if (!cancelled) setHtml("");
+          clearTimeout(timeout);
+          if (!cancelled) setState({ status: timedOut ? "timeout" : "error", html: "" });
         });
     }, 250);
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      controller.abort();
     };
-  }, [type, key]);
-  if (!html) {
-    return <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem" }}>{type}</div>;
+  }, [type, key, version, attempt, placeholderMode]);
+
+  /**
+   * Plugin inline editing (justflows-ce#297): only elements the plugin marked
+   * with `data-jf-inline="<prop>"` AND whose prop it declared become editable,
+   * as plain text. Nothing else in the plugin's markup is touched.
+   */
+  useEffect(() => {
+    const root = container.current;
+    if (!root || !active || !fields || !onCommit) return;
+    const cleanups: Array<() => void> = [];
+    root.querySelectorAll<HTMLElement>(`[${INLINE_FIELD_ATTRIBUTE}]`).forEach((el) => {
+      const field = el.getAttribute(INLINE_FIELD_ATTRIBUTE) ?? "";
+      const spec = fields[field];
+      if (!spec) return;
+      const original = typeof props[field] === "string" ? (props[field] as string) : (el.textContent ?? "");
+      let cancelled = false;
+      el.setAttribute("contenteditable", "true");
+      el.setAttribute("role", "textbox");
+      el.setAttribute("dir", "auto");
+      el.setAttribute("aria-label", t("builder.inline.pluginField", { field }));
+      el.setAttribute("aria-multiline", spec.multiline ? "true" : "false");
+      el.dataset.builderChrome = "true";
+      el.classList.add("jf-inline-editable");
+      const read = () => readEditableText(el, Boolean(spec.multiline));
+      const onKey = (e: KeyboardEvent) => {
+        if (e.isComposing || e.keyCode === 229) return;
+        if (e.key === "Escape") {
+          cancelled = true;
+          el.blur();
+        } else if (e.key === "Enter" && !spec.multiline) {
+          e.preventDefault();
+          el.blur();
+        }
+      };
+      const onPaste = (e: ClipboardEvent) => {
+        e.preventDefault();
+        const text = e.clipboardData?.getData("text/plain") ?? "";
+        document.execCommand("insertText", false, spec.multiline ? text : text.replace(/\s*\n\s*/g, " "));
+      };
+      const onBlur = () => {
+        if (cancelled) {
+          cancelled = false;
+          el.textContent = original;
+          return;
+        }
+        const next = normalizeInlineValue({ ...spec, mode: "plain" }, read());
+        if (next !== original) onCommit({ ...props, [field]: next });
+      };
+      el.addEventListener("keydown", onKey);
+      el.addEventListener("paste", onPaste);
+      el.addEventListener("blur", onBlur);
+      cleanups.push(() => {
+        el.removeEventListener("keydown", onKey);
+        el.removeEventListener("paste", onPaste);
+        el.removeEventListener("blur", onBlur);
+        el.removeAttribute("contenteditable");
+      });
+    });
+    return () => cleanups.forEach((fn) => fn());
+  }, [html, active, fields, onCommit, key]);
+
+  const title = entry?.title ?? type;
+  const minHeight = entry?.preview?.minHeight;
+  if (state.status !== "ready") {
+    const retry = (
+      <button type="button" className="jf-btn jf-btn--ghost jf-btn--sm" data-builder-chrome="true" onClick={(e) => { e.stopPropagation(); setAttempt((n) => n + 1); }}>
+        {t("builder.pluginPreview.retry")}
+      </button>
+    );
+    const body =
+      state.status === "loading" ? <span>{t("builder.pluginPreview.loading", { title })}</span>
+      : state.status === "placeholder" ? (
+          <>
+            <strong>{entry?.icon} {title}</strong>
+            {entry?.description && <span>{entry.description}</span>}
+            <span>{t("builder.pluginPreview.placeholder")}</span>
+          </>
+        )
+      : state.status === "empty" ? <span>{t("builder.pluginPreview.empty", { title })}</span>
+      : state.status === "unavailable" ? (
+          <>
+            <strong>{t("builder.pluginPreview.unavailable", { type })}</strong>
+            <span>{t("builder.pluginPreview.unavailableHint")}</span>
+          </>
+        )
+      : (
+          <>
+            <span>{state.status === "timeout" ? t("builder.pluginPreview.timeout", { title }) : t("builder.pluginPreview.failed", { title })}</span>
+            {retry}
+          </>
+        );
+    return (
+      <div className={`jf-plugin-preview jf-plugin-preview--${state.status}`} data-jf-plugin-block={type} role={state.status === "loading" ? undefined : "note"} aria-busy={state.status === "loading" || undefined} style={minHeight ? { minHeight } : undefined}>
+        {body}
+      </div>
+    );
   }
-  return <div data-jf-plugin-block={type} dangerouslySetInnerHTML={{ __html: html }} />;
+  /**
+   * Deprecated blocks and blocks whose stored version could not be upgraded
+   * still show their content, with a note saying so (justflows-ce#306).
+   */
+  const notes = [
+    entry?.deprecated ? (entry.deprecated.replacedBy ? t("builder.blockStatus.deprecatedReplaced", { type: entry.deprecated.replacedBy }) : t("builder.blockStatus.deprecated")) : "",
+    state.migrationFailed ? t("builder.blockStatus.migrationFailed", { version: String(version ?? 1) }) : "",
+  ].filter(Boolean);
+  const rendered = <div ref={container} data-jf-plugin-block={type} style={minHeight ? { minHeight } : undefined} dangerouslySetInnerHTML={{ __html: html! }} />;
+  if (!notes.length) return rendered;
+  return (
+    <div className="jf-block-status" data-jf-block-status={state.migrationFailed ? "migration-failed" : "deprecated"}>
+      {notes.map((note) => (
+        <p key={note} className="jf-block-status__note" role="note" data-builder-chrome="true">{note}</p>
+      ))}
+      {rendered}
+    </div>
+  );
 }
+
+/** How long a plugin preview may take before the canvas shows it as timed out. */
+const PREVIEW_TIMEOUT_MS = 8000;
 
 const widgetChip: React.CSSProperties = {
   display: "inline-block",
@@ -826,4 +1051,18 @@ function widgetAlign(align: string): React.CSSProperties {
   if (align === "center") return { justifyContent: "center", width: "100%" };
   if (align === "right") return { justifyContent: "flex-end", width: "100%" };
   return { justifyContent: "flex-start" };
+}
+
+/** `a:b;c:d` declarations as a React style object; custom properties keep their names. */
+export function declarationsToStyle(declarations: string): React.CSSProperties {
+  const out: Record<string, string> = {};
+  for (const part of declarations.split(";")) {
+    const at = part.indexOf(":");
+    if (at <= 0) continue;
+    const key = part.slice(0, at).trim();
+    const value = part.slice(at + 1).trim();
+    if (!key || !value) continue;
+    out[key.startsWith("--") ? key : key.replace(/-([a-z])/g, (_m, c: string) => c.toUpperCase())] = value;
+  }
+  return out as React.CSSProperties;
 }

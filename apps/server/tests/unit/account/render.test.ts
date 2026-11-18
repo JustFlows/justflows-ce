@@ -43,3 +43,12 @@ it("preserves builder spacing, custom classes and CSS when hydrating", async () 
   expect(rendered).toContain("my-profile"); expect(rendered).toContain('id="profile"');
   expect(rendered).not.toContain("Your account details");
 });
+
+it("frames the Your data block for the account script, with its switches, and only on account pages", async () => {
+  const html = createBlockRegistrySync().renderDocument({ blocks: [{ type: "core.account-data", props: { showSummary: false } }] });
+  expect(html).toContain('data-summary="false"'); expect(html).toContain('data-download="true"');
+  const rendered = await renderAccountBlocks(html, session);
+  expect(rendered).toContain("Loading your data…");
+  /** The account script needs its initial state on a page that has only this block. */
+  expect(rendered).toContain('id="initial-account"');
+});

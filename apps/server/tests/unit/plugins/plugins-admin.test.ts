@@ -49,7 +49,10 @@ vi.mock("../../../src/lib/plugins/plugin-assets.js", () => ({
 }));
 vi.mock("../../../src/lib/security/audit-log.js", () => ({ auditLog: mocks.audit }));
 vi.mock("../../../src/lib/cache/cache-revalidate.js", () => ({ revalidateOnUpdate: mocks.revalidate }));
-vi.mock("../../../src/lib/tenancy/quotas.js", () => ({ enforceQuota: mocks.enforceQuota }));
+vi.mock("../../../src/lib/tenancy/quotas.js", () => ({
+  enforceQuota: mocks.enforceQuota,
+  listMeterDefinitions: () => [{ key: "shop.enabled", unit: "flag" }, { key: "justflows.bookings.enabled", unit: "flag" }],
+}));
 const actor = { siteId: "site-1", userId: "admin-1", role: "administrator" };
 
 beforeEach(() => {
@@ -127,6 +130,7 @@ describe("activatePluginAdmin quotas", () => {
   it("checks the active allowance before runtime activation", async () => {
     mocks.enforceQuota.mockResolvedValue(null);
     mocks.runtimeActivate.mockImplementation(async () => {
+      expect(mocks.enforceQuota).toHaveBeenCalledWith("shop.enabled", actor.siteId, 0);
       expect(mocks.enforceQuota).toHaveBeenCalledWith("plugins", actor.siteId, 1);
     });
     expect(await activatePluginAdmin("shop", actor)).toEqual({ status: 200, body: { ok: true } });
@@ -136,7 +140,7 @@ describe("activatePluginAdmin quotas", () => {
 
   it("refuses activation at the limit without running or persisting the plugin", async () => {
     const block = { status: 409, error: "The limit for Active plugins has been reached (3).", code: "quota_exceeded", meter: "plugins" };
-    mocks.enforceQuota.mockResolvedValue(block);
+    mocks.enforceQuota.mockResolvedValueOnce(null).mockResolvedValueOnce(block);
     expect(await activatePluginAdmin("shop", actor)).toEqual({ status: 409, body: { error: block.error, code: block.code, meter: block.meter } });
     expect(mocks.runtimeActivate).not.toHaveBeenCalled();
     expect(mocks.persistActive).not.toHaveBeenCalled();
@@ -144,7 +148,20 @@ describe("activatePluginAdmin quotas", () => {
 
   it("does not consume another slot for an already active plugin", async () => {
     mocks.getPlugin.mockResolvedValue({ status: "active", manifest: { id: "shop" } });
+    mocks.enforceQuota.mockResolvedValue(null);
     expect((await activatePluginAdmin("shop", actor)).status).toBe(200);
-    expect(mocks.enforceQuota).not.toHaveBeenCalled();
+    expect(mocks.enforceQuota).toHaveBeenCalledWith("shop.enabled", actor.siteId, 0);
+    expect(mocks.enforceQuota).not.toHaveBeenCalledWith("plugins", actor.siteId, 1);
+  });
+
+  it("refuses activation when the plugin is turned off for the website", async () => {
+    const block = { status: 403, error: "Bookings is turned off for this website.", code: "feature_disabled", meter: "justflows.bookings.enabled" };
+    mocks.enforceQuota.mockResolvedValue(block);
+    expect(await activatePluginAdmin("justflows.bookings", actor)).toEqual({
+      status: 403,
+      body: { error: block.error, code: block.code, meter: block.meter },
+    });
+    expect(mocks.runtimeActivate).not.toHaveBeenCalled();
+    expect(mocks.persistActive).not.toHaveBeenCalled();
   });
 });

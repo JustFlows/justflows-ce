@@ -215,7 +215,7 @@ export default function StorageSettingsPage() {
               )}
               {state.copying > 0 && (
                 <div className="jf-alert jf-alert--info" role="status">
-                  {t("storage.copying", { count: String(state.copying) })}
+                  {t("storage.copying", { count: state.copying })}
                 </div>
               )}
               {usage(t("storage.filesUsage"), state.files, false)}

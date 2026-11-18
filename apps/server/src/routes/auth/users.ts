@@ -306,7 +306,7 @@ router.post("/:id/sign-in-factors/reset", requireRole("administrator"), async (r
 router.get("/:id/personal-data", requireRole("administrator"), async (req, res) => {
   const session = req.session!;
   try {
-    const data = await exportPersonalData(session.siteId, param(req.params.id));
+    const data = await exportPersonalData(session.siteId, { userId: param(req.params.id) }, { userId: session.userId, role: session.role });
     if (!data) {
       res.status(404).json({ error: "User not found" });
       return;
@@ -343,11 +343,11 @@ router.post("/:id/erase", requireRole("administrator"), async (req, res) => {
   }
 
   try {
-    const result = await erasePersonalData(
-      session.siteId,
-      userId,
-      body.data.reassignContentTo ?? null,
-    );
+    const result = await erasePersonalData(session.siteId, { userId }, body.data.reassignContentTo ?? null, { userId: session.userId, role: session.role });
+    if (!result) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
     await emitUserEvent("user.updated", userId, session.siteId);
     res.json({ ok: true, ...result });
   } catch (err) {

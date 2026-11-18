@@ -719,6 +719,7 @@ export async function sendTemplateMail(input: {
       ...input.values,
     },
     mode: "published",
+    absoluteAssets: true,
   });
   if (!rendered.enabled) return { ok: false, error: "This email template is disabled" };
   return sendMail({

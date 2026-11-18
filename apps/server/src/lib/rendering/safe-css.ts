@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { hasUnsafeCss, decodeCssEscapes, normalizeCssForChecks, stripCssComments } from "@justflows/blocks";
+import { InvalidInputError } from "../http/invalid-input-error.js";
 
 const MAX_CUSTOM_CSS_BYTES = 32 * 1024;
 
@@ -27,11 +28,11 @@ export function sanitizeCustomCss(input: string): string {
   if (!css) return "";
 
   if (Buffer.byteLength(css, "utf-8") > MAX_CUSTOM_CSS_BYTES) {
-    throw new Error(`Custom CSS exceeds ${MAX_CUSTOM_CSS_BYTES / 1024} KB limit`);
+    throw new InvalidInputError(`Custom CSS exceeds ${MAX_CUSTOM_CSS_BYTES / 1024} KB limit`);
   }
 
   if (hasUnsafeCss(css)) {
-    throw new Error("Custom CSS contains disallowed constructs");
+    throw new InvalidInputError("Custom CSS contains disallowed constructs");
   }
 
   return css;

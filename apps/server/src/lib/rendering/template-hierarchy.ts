@@ -64,11 +64,12 @@ export type TemplateQuery =
 
 /** Keep a slug safe to interpolate into a filename: lowercase, `[a-z0-9-]`. */
 function slugSegment(raw: string): string {
-  return raw
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
+  const normalized = raw.toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+  let start = 0;
+  let end = normalized.length;
+  while (normalized[start] === "-") start++;
+  while (end > start && normalized[end - 1] === "-") end--;
+  return normalized.slice(start, end).slice(0, 80);
 }
 
 function dedupe(slugs: string[]): string[] {

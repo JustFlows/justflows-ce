@@ -26,7 +26,7 @@ function mockFetch(role: string): void {
       const path = String(input);
       if (path === "/api/auth/me") return jsonResponse({ id: "self", email: "self@example.com", role });
       if (path === "/api/plugins/admin-menu") return jsonResponse({ items: [] });
-      if (path === "/api/plugins") return jsonResponse({ plugins: PLUGINS });
+      if (path.startsWith("/api/plugins?")) return jsonResponse({ plugins: PLUGINS });
       return jsonResponse({});
     }),
   );
@@ -109,7 +109,7 @@ describe("PluginsPage as an administrator", () => {
           return jsonResponse({ id: "self", email: "self@example.com", role: "administrator" });
         }
         if (path === "/api/plugins/admin-menu") return jsonResponse({ items: [] });
-        if (path === "/api/plugins") {
+        if (path.startsWith("/api/plugins?")) {
           return jsonResponse({
             plugins: [
               {
@@ -164,7 +164,7 @@ describe("PluginsPage updates", () => {
           return jsonResponse({ id: "self", email: "self@example.com", role: "administrator" });
         }
         if (path === "/api/plugins/admin-menu") return jsonResponse({ items: [] });
-        if (path === "/api/plugins") return jsonResponse({ plugins: PLUGINS });
+        if (path.startsWith("/api/plugins?")) return jsonResponse({ plugins: PLUGINS });
         if (path === "/api/marketplace/updates") {
           return jsonResponse({
             checkedAt: "2026-10-02T00:00:00.000Z",

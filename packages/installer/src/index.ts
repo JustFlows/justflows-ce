@@ -2,6 +2,7 @@
 
 export { PackageInstaller } from "./package-installer.js";
 export { PackageManifestSchema } from "./package-manifest.js";
+export { extractJfpkg } from "./extract-jfpkg.js";
 export {
   ArchiveSafetyError,
   PackageRejectedError,

@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT
+import { describe, expect, it } from "vitest";
+import { coreBlocks, resolveInlineFields } from "../../src/index.js";
+
+/**
+ * Core blocks mark each declared in-place field with `data-jf-inline`, so the
+ * builder edits the page's own markup (justflows-ce#311), as plugin blocks do.
+ */
+
+/** Alt text is an attribute, not visible text, so it has no element to mark; the builder edits it beside the image. */
+const ATTRIBUTE_FIELDS: Record<string, string[]> = { "core.image": ["alt"] };
+const NOT_YET = new Set<string>();
+
+describe("inline field markers", () => {
+  const withFields = coreBlocks.filter((d) => Object.keys(resolveInlineFields(d.inline, true)).length > 0 && !NOT_YET.has(d.type));
+
+  it.each(withFields.map((d) => [d.type, d] as const))("%s marks every declared field", (_type, definition) => {
+    const fields = Object.keys(resolveInlineFields(definition.inline, true));
+    const raw: Record<string, unknown> = { buttonUrl: "/go", url: "/go", src: "/uploads/a.jpg" };
+    for (const field of fields) raw[field] = `Value of ${field}`;
+    const html = definition.render(definition.validateProps(raw) as never, "");
+    for (const field of fields) {
+      if (ATTRIBUTE_FIELDS[definition.type]?.includes(field)) continue;
+      expect(html, field).toContain(`data-jf-inline="${field}"`);
+    }
+  });
+});

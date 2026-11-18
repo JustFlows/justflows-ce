@@ -74,7 +74,7 @@ export type {
   ContentVisibilityRuleRunner,
   ContentVisibilityViewer,
 } from "./service/visibility.js";
-export { DEFAULT_ACCOUNT_BLOCKS, seedAccountPage } from "./service/account-page.js";
+export { ACCOUNT_DATA_SLUG, DEFAULT_ACCOUNT_BLOCKS, DEFAULT_ACCOUNT_DATA_BLOCKS, seedAccountPage } from "./service/account-page.js";
 export { AUTH_PAGES, AUTH_PAGE_SLUGS, DEFAULT_AUTH_BLOCKS, defaultAuthBlocks, seedAuthPages } from "./service/auth-page.js";
 export type { AuthPageSlug } from "./service/auth-page.js";
 

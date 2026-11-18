@@ -15,7 +15,8 @@ import { sendWithPermissionApproval } from "../../../lib/plugin-permission-appro
 interface Plugin {
   id: string;
   name: string;
-  version: string;
+  /** Absent on sites other than the main site, which decides the version. */
+  version?: string;
   description?: string;
   status: "active" | "inactive" | "installed" | "error";
   publisher: string;
@@ -23,6 +24,119 @@ interface Plugin {
   setupPath?: string;
   allowMultisite?: boolean;
   multisiteEnabled?: boolean;
+}
+
+/** The extension checker's report for one installed plugin (justflows-ce#97). */
+interface CheckReport {
+  rulesetVersion: string;
+  counts: { error: number; warning: number; info: number };
+  findings: Array<{ rule: string; severity: "error" | "warning" | "info"; message: string; file?: string; line?: number; help: string }>;
+}
+
+const SEVERITY_VARIANT: Record<CheckReport["findings"][number]["severity"], string> = {
+  error: " jf-badge--error",
+  warning: " jf-badge--warn",
+  info: " jf-badge--info",
+};
+
+type TrustState = "verified" | "operator" | "legacy" | "unverified";
+
+interface PluginTrust {
+  pluginId: string;
+  version: string;
+  state: TrustState;
+  reason: string;
+  archiveDigest: string | null;
+  legacyUntil?: string;
+}
+
+interface TrustPayload {
+  plugins: PluginTrust[];
+  operatorTrustAllowed: boolean;
+  /** False until Justflows publishes its attestation list; trust states are hidden until then. */
+  live?: boolean;
+  /** Whether unverified plugins run in the sandbox here (justflows-ce#270). */
+  sandbox?: { mode: "on" | "off"; supported: boolean };
+}
+
+const TRUST_VARIANT: Record<TrustState, string> = {
+  verified: " jf-badge--ok",
+  operator: " jf-badge--info",
+  legacy: " jf-badge--warn",
+  unverified: " jf-badge--warn",
+};
+
+/**
+ * A plugin's trust state (justflows-ce#270) and, on a single self-hosted site,
+ * the control to trust this exact build. Trusting asks for the password.
+ */
+function TrustRow({ trust, allowed, sandbox, onChanged }: { trust: PluginTrust; allowed: boolean; sandbox?: TrustPayload["sandbox"]; onChanged: (next: PluginTrust) => void }) {
+  const { t } = useT();
+  const [confirming, setConfirming] = useState(false);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const date = trust.legacyUntil ? new Date(trust.legacyUntil).toLocaleDateString() : "";
+  const canTrust = allowed && trust.archiveDigest !== null && trust.state !== "verified";
+  const trusted = trust.state === "operator";
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    const res = await fetch(`/api/plugins/${encodeURIComponent(trust.pluginId)}/trust`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ trusted: !trusted, password, archiveDigest: trust.archiveDigest }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { plugin?: PluginTrust; error?: string };
+    setBusy(false);
+    if (!res.ok || !data.plugin) {
+      setError(data.error ?? t("plugins.trust.failed"));
+      return;
+    }
+    setConfirming(false);
+    setPassword("");
+    onChanged(data.plugin);
+  }
+
+  return (
+    <div className="jf-stack jf-stack--sm">
+      <p className="jf-meta">
+        <span className={`jf-badge${TRUST_VARIANT[trust.state]}`}>{t(`plugins.trust.states.${trust.state}`)}</span>{" "}
+        {t(`plugins.trust.reasons.${trust.reason}`, { date })}
+      </p>
+      {sandbox?.mode === "on" && trust.state === "unverified" ? (
+        <p className="jf-meta">{sandbox.supported ? t("plugins.trust.sandboxed") : t("plugins.trust.notLoaded")}</p>
+      ) : null}
+      {canTrust && !confirming ? (
+        <div className="jf-row">
+          <button className="jf-btn jf-btn--ghost" type="button" onClick={() => setConfirming(true)}>
+            {trusted ? t("plugins.trust.untrust") : t("plugins.trust.trust")}
+          </button>
+        </div>
+      ) : null}
+      {confirming ? (
+        <form className="jf-stack jf-stack--sm" onSubmit={submit}>
+          <p className="jf-field__hint">{trusted ? t("plugins.trust.untrustHint") : t("plugins.trust.trustHint")}</p>
+          <p className="jf-meta"><code className="jf-code">{`sha256:${trust.archiveDigest}`}</code></p>
+          <label className="jf-field">
+            <span className="jf-field__label">{t("plugins.trust.password")}</span>
+            <input className="jf-input" type="password" autoComplete="current-password" value={password} required onChange={(e) => setPassword(e.target.value)} />
+          </label>
+          {error ? <p className="jf-status jf-status--error">{error}</p> : null}
+          <div className="jf-row">
+            <button className="jf-btn jf-btn--primary" type="submit" disabled={busy}>
+              {trusted ? t("plugins.trust.untrustConfirm") : t("plugins.trust.trustConfirm")}
+            </button>
+            <button className="jf-btn" type="button" onClick={() => { setConfirming(false); setPassword(""); setError(""); }}>
+              {t("common.cancel")}
+            </button>
+          </div>
+        </form>
+      ) : null}
+    </div>
+  );
 }
 
 const STATUS_VARIANT: Record<Plugin["status"], string> = {
@@ -46,20 +160,47 @@ export default function PluginsPage() {
   const [uploadSuccess, setUploadSuccess] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [dragging, setDragging] = useState(false);
+  /** Off unless the server sets JF_EXTENSION_CHECKER=on: a tool for plugin authors, not site owners. */
+  const [checkerEnabled, setCheckerEnabled] = useState(false);
+  const [checks, setChecks] = useState<Record<string, { loading?: boolean; report?: CheckReport; error?: string }>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Installing, activating, or deleting a plugin changes which admin pages exist.
   const { refresh: refreshMenu } = usePluginMenu();
   const updates = useExtensionUpdates(canManage);
+  const [trust, setTrust] = useState<TrustPayload | null>(null);
+
+  async function checkPlugin(id: string) {
+    setChecks((current) => ({ ...current, [id]: { loading: true } }));
+    try {
+      const res = await fetch(`/api/plugins/${encodeURIComponent(id)}/check`, { cache: "no-store" });
+      const data = (await res.json()) as { report?: CheckReport; error?: string };
+      if (!res.ok || !data.report) throw new Error(data.error ?? t("plugins.checkFailed"));
+      setChecks((current) => ({ ...current, [id]: { report: data.report } }));
+    } catch (error) {
+      setChecks((current) => ({ ...current, [id]: { error: error instanceof Error ? error.message : String(error) } }));
+    }
+  }
 
   useEffect(() => {
-    fetch("/api/plugins")
+    fetch("/api/plugins?site-features=1", { cache: "no-store" })
       .then((r) => r.json())
-      .then((data: { plugins?: Plugin[] }) => {
+      .then((data: { plugins?: Plugin[]; extensionChecker?: boolean }) => {
         if (Array.isArray(data.plugins)) setPlugins(data.plugins);
+        setCheckerEnabled(data.extensionChecker === true);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!canManage) return;
+    fetch("/api/plugins/trust", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: TrustPayload | null) => {
+        if (data && Array.isArray(data.plugins)) setTrust(data);
+      })
+      .catch(() => {});
+  }, [canManage]);
 
   async function handleFile(file: File) {
     if (!file.name.endsWith(".jfpkg") && !file.name.endsWith(".zip")) {
@@ -249,12 +390,23 @@ export default function PluginsPage() {
                 <div className="jf-list__main">
                   <div className="jf-row" style={{ gap: "0.5rem" }}>
                     <strong>{p.name}</strong>
-                    <span className="jf-meta">v{p.version}</span>
+                    {p.version && <span className="jf-meta">v{p.version}</span>}
                     <span className={`jf-badge${STATUS_VARIANT[p.status]}`}>{p.status}</span>
                     {canManage && installationRoot && <ExtensionUpdateBadge state={updates} type="plugin" id={p.id} />}
                   </div>
                   {p.description && <p className="jf-list__desc">{p.description}</p>}
                   <p className="jf-meta">{t("ui.pluginsPage.by")}{p.publisher} · <code className="jf-code">{p.id}</code></p>
+                  {(() => {
+                    const row = trust?.plugins.find((item) => item.pluginId === p.id);
+                    return row && trust!.live !== false ? (
+                      <TrustRow
+                        trust={row}
+                        allowed={trust!.operatorTrustAllowed}
+                        sandbox={trust!.sandbox}
+                        onChanged={(next) => setTrust((current) => current && { ...current, plugins: current.plugins.map((item) => (item.pluginId === next.pluginId ? next : item)) })}
+                      />
+                    ) : null;
+                  })()}
                   {canManage && installationRoot && (
                     <label className="jf-row" style={{ gap: "0.5rem" }}>
                       <input
@@ -269,6 +421,41 @@ export default function PluginsPage() {
                     <p className="jf-meta">{t("plugins.multisiteHint")}</p>
                   )}
                   {canManage && installationRoot && <ExtensionAutoUpdateToggle state={updates} type="plugin" id={p.id} />}
+                  {checks[p.id]?.error && (
+                    <div className="jf-alert jf-alert--error" role="alert">{checks[p.id]!.error}</div>
+                  )}
+                  {checks[p.id]?.report && (
+                    <div role="status" className="jf-stack" style={{ gap: "0.25rem" }}>
+                      <p className="jf-meta">
+                        {checks[p.id]!.report!.findings.length === 0
+                          ? t("plugins.checkClean")
+                          : t("plugins.checkSummary", {
+                              errors: checks[p.id]!.report!.counts.error,
+                              warnings: checks[p.id]!.report!.counts.warning,
+                              notes: checks[p.id]!.report!.counts.info,
+                            })}
+                      </p>
+                      {checks[p.id]!.report!.findings.length > 0 && (
+                        <ul className="jf-stack" style={{ listStyle: "none", padding: 0, gap: "0.25rem" }}>
+                          {checks[p.id]!.report!.findings.map((finding, index) => (
+                            <li key={index}>
+                              <span className={`jf-badge${SEVERITY_VARIANT[finding.severity]}`}>{finding.rule}</span>{" "}
+                              {finding.message}
+                              {finding.file && (
+                                <span className="jf-meta">
+                                  {" "}
+                                  · <code className="jf-code">{finding.file}{finding.line ? `:${finding.line}` : ""}</code>
+                                </span>
+                              )}{" "}
+                              <a href={finding.help} target="_blank" rel="noreferrer">
+                                {t("plugins.checkHelp")}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {canManage && (
                   <div className="jf-row" style={{ flexWrap: "nowrap" }}>
@@ -294,6 +481,16 @@ export default function PluginsPage() {
                       <Link className="jf-btn jf-btn--ghost" to={`/admin/plugins/${p.id}/settings`}>
                         {t("plugins.settingsLink")}
                       </Link>
+                    )}
+                    {installationRoot && checkerEnabled && (
+                      <button
+                        className="jf-btn jf-btn--ghost"
+                        disabled={checks[p.id]?.loading === true}
+                        title={t("plugins.checkHint")}
+                        onClick={() => void checkPlugin(p.id)}
+                      >
+                        {checks[p.id]?.loading ? t("plugins.checking") : t("plugins.check")}
+                      </button>
                     )}
                     <button className="jf-btn jf-btn--ghost" onClick={() => void togglePlugin(p)}>
                       {p.status === "active" ? t("plugins.deactivate") : t("plugins.activate")}

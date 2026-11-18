@@ -26,6 +26,7 @@ import { getUploadStore } from "../../lib/media/upload-store.js";
 import { packagesInstalledDir } from "../../lib/extensions/packages-dir.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { sendTestMail } from "../../lib/email/mail.js";
+import { blockRenderReport } from "../../lib/rendering/plugin-render-guard.js";
 
 const router = Router();
 const diagnosticsLimit = rateLimit({
@@ -297,6 +298,8 @@ async function buildReport(siteId: string) {
     },
     automaticBackups: await automaticBackupHealth(),
     pluginChecks: redactDiagnosticValue(pluginChecks),
+    /** Slow and paused plugin block types (justflows-ce#316). */
+    blockRenders: blockRenderReport(),
     errors: recentDiagnosticErrors(),
     traces: recentRequestTraces(),
   };

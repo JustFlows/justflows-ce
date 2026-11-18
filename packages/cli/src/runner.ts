@@ -7,6 +7,7 @@ import { cacheCommand } from "./commands/cache.js";
 import { exportCommand } from "./commands/export.js";
 import { healthCommand } from "./commands/health.js";
 import { updateCommand } from "./commands/update.js";
+import { checkCommand } from "./commands/check.js";
 
 const VERSION = "0.1.2";
 
@@ -31,6 +32,7 @@ Commands:
   cache clear             Clear the application cache
   export static           Write published pages + assets to STATIC_EXPORT_DIR
   health                  Run site health checks
+  check <folder|.jfpkg>   Check a plugin, theme, or CSS provider before publishing
   update                  Check for and apply updates
 
 Options:
@@ -82,6 +84,9 @@ export async function run(args: string[]): Promise<void> {
         break;
       case "update":
         await updateCommand(rest);
+        break;
+      case "check":
+        await checkCommand(rest);
         break;
       default:
         console.error(`Unknown command: ${command}\nRun "justflows --help" for usage.`);

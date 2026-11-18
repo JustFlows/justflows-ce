@@ -389,6 +389,30 @@ async function verifyDirectory(packageDir: string, inventory: ExtensionInventory
   }
 }
 
+/**
+ * The recorded identity of an installed package: its id, type, version, and
+ * the digest of the archive it was installed from. Null without a baseline.
+ */
+export async function readInstalledPackageIdentity(packageDir: string): Promise<{
+  packageId: string;
+  packageType: ExtensionPackageType;
+  version: string;
+  archiveDigest: string;
+} | null> {
+  if (!isAllowedPackageDir(packageDir)) return null;
+  const relativeRoot = relativeInstallPath(packageDir);
+  if (!relativeRoot) return null;
+  const filePath = resolvePathUnderBase(integrityDir(), inventoryFileName(relativeRoot));
+  const inventory = filePath ? await readInventoryFile(filePath) : null;
+  if (!inventory || inventory.root !== relativeRoot) return null;
+  return {
+    packageId: inventory.packageId,
+    packageType: inventory.packageType,
+    version: inventory.version,
+    archiveDigest: inventory.archiveDigest,
+  };
+}
+
 /** Compare one installed directory with its baseline. No baseline is unverifiable. */
 export async function verifyInstalledDirectory(packageDir: string): Promise<ExtensionIntegrityReport | null> {
   if (!isAllowedPackageDir(packageDir)) return null;

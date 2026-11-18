@@ -167,6 +167,54 @@ export async function processForgotPassword(
   }
 }
 
+/** A first-password link stays valid for three days: the person may not read mail at once. */
+export const PASSWORD_SETUP_TTL_MINUTES = 3 * 24 * 60;
+
+export type PasswordSetupResult = { ok: true; expiresAt: string } | { ok: false; status: number; error: string };
+
+/**
+ * Email an existing account a single-use link to choose its password, on the
+ * sign-in surface it belongs to (admin pages for staff, the site's for
+ * members). For accounts made for someone by an administrator or a plugin,
+ * who never typed a password. It does not depend on self-service reset being
+ * enabled, because the site, not the person, asked for it. The link replaces
+ * any earlier reset link; nothing changes until the person uses it.
+ */
+export async function sendPasswordSetup(
+  siteId: string,
+  userId: string,
+  actor: { userId: string; role: string },
+): Promise<PasswordSetupResult> {
+  const db = await getDb();
+  const rows = await db.query<ForgotUserRow & { username: string }>(
+    "SELECT id, email, display_name, role, username FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+    [userId, siteId],
+  );
+  const user = rows[0];
+  if (!user) return { ok: false, status: 404, error: "User not found." };
+  const surface = await accountSurface(user.role, user.id, siteId);
+  const { token, expiresAt } = await createPasswordReset(user.id, siteId, null, PASSWORD_SETUP_TTL_MINUTES);
+  const link = await resetLinkFor(token, surface);
+  if (process.env.NODE_ENV === "development") {
+    console.log(`\n[dev] password setup for ${user.email}:\n      ${link}\n`);
+  }
+  const result = await sendTemplateMail({
+    to: user.email,
+    key: "core.account-invite",
+    values: { display_name: user.display_name || user.email, action_url: link, expiration: "3 days", username: user.username },
+  });
+  void auditLog({
+    siteId,
+    action: "auth.password_setup_sent",
+    outcome: result.ok ? "success" : "failure",
+    actorId: actor.userId,
+    actorRole: actor.role,
+    target: user.id,
+    detail: result.ok ? `set-password link sent to ${user.email}` : `set-password link could not be mailed: ${result.error}`,
+  });
+  return result.ok ? { ok: true, expiresAt: expiresAt.toISOString() } : { ok: false, status: 502, error: "The email could not be sent." };
+}
+
 /** Resolve a raw token to a live reset, or null. Thin re-export for the route. */
 export async function resolveResetToken(token: string): Promise<ResolvedReset | null> {
   return findLiveReset(token);

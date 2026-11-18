@@ -247,6 +247,8 @@ function checkTitle(id: string): string {
       return "security.center.checks.headersPolicy.title";
     case "extensions.integrity":
       return "security.center.checks.extensionsIntegrity.title";
+    case "extensions.trust":
+      return "security.center.checks.extensionsTrust.title";
     case "recovery.backup":
       return "security.center.checks.recoveryBackup.title";
     default:

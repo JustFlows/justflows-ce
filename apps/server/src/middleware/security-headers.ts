@@ -98,6 +98,35 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
           // A broken export config must not cost the page its other CSP additions.
         }
       }
+      /**
+       * Custom code (justflows-ce#94): each live inline snippet is allowed by its
+       * hash, external ones by the operator's allowlist. Public pages only.
+       */
+      if (ctx.area === "public") {
+        try {
+          const { getSiteId } = await import("../lib/settings/site-settings.js");
+          const siteId = await getSiteId();
+          const { customCodeCsp, withCustomCodeHashes } = await import("../lib/custom-code/custom-code.js");
+          const custom = siteId ? await customCodeCsp(siteId) : null;
+          if (custom) {
+            const { applyCspSources } = await import("../lib/security/csp-sources.js");
+            for (const name of ["Content-Security-Policy", "Content-Security-Policy-Report-Only"]) {
+              const value = headerValue(res.getHeader(name));
+              if (!value) continue;
+              const withSources = applyCspSources(value, {
+                "script-src": custom.script,
+                ...(value.includes("script-src-elem") ? { "script-src-elem": custom.script } : {}),
+                "connect-src": custom.connect,
+                "img-src": custom.img,
+                "frame-src": custom.frame,
+              });
+              res.setHeader(name, withCustomCodeHashes(withSources, custom.hashes));
+            }
+          }
+        } catch {
+          /** A broken custom code setting keeps the policy already on the response. */
+        }
+      }
       // Plugins name the third-party hosts their pages load (a payment provider, and so on)
       // before the site's own addresses are added to those same directives.
       try {

@@ -4,7 +4,6 @@ import { getDb } from "../../lib/database/db.js";
 import { getSiteId } from "../../lib/settings/site-settings.js";
 import { revalidateOnUpdate } from "../../lib/cache/cache-revalidate.js";
 import { requireCapability, requireRole, requireSession } from "../../middleware/auth.js";
-import { THEME_CUSTOMIZE_ROLES } from "../../lib/auth/rbac.js";
 import { setHomePageId } from "../../lib/content/home-page.js";
 import { setBlogPageId } from "../../lib/content/blog-page.js";
 import {
@@ -104,7 +103,7 @@ const HomePageSchema = z.object({
   contentId: z.string().uuid().nullable(),
 });
 
-router.put("/home-page", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.put("/home-page", requireCapability("design:manage"), async (req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) {
@@ -129,7 +128,7 @@ const BlogPageSchema = z.object({
   contentId: z.string().uuid().nullable(),
 });
 
-router.put("/blog-page", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.put("/blog-page", requireCapability("design:manage"), async (req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) {
