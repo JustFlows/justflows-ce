@@ -210,6 +210,20 @@ export async function dispatchPluginHttp(
     return;
   }
 
+  /** A registered `<plugin id>.enabled` site flag gates every route the plugin owns. */
+  const context = getTenantContext();
+  if (context?.siteId) {
+    const { enforceQuota, listMeterDefinitions } = await import("../tenancy/quotas.js");
+    const featureKey = `${match.pluginId}.enabled`;
+    if (listMeterDefinitions("site").some((meter) => meter.key === featureKey && meter.unit === "flag")) {
+      const block = await enforceQuota(featureKey, context.siteId, 0);
+      if (block) {
+        res.status(block.status).json(pluginHttpErrorBody(match.structuredErrors, block.status, block.error));
+        return;
+      }
+    }
+  }
+
   // These routes are mounted at the application root, not under /api, so the
   // csrfProtection middleware never sees them — every plugin mutation was
   // cross-site forgeable. Checked here, on the one path that reaches them.

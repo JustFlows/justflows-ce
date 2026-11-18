@@ -3,7 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Link, Navigate, NavLink } from "../admin-router";
 import { adminBasePath } from "../admin-path";
 import { ADMIN_UI_LOCALES, useT, type AdminUiLocale } from "../i18n/I18nProvider";
-import { ADMIN_DASHBOARD, canAccessPath, filterDomainsByRole, findDomainForPath, isDomainActive, navLabel, pluginPageRoles } from "../config/admin-nav";
+import { ADMIN_DASHBOARD, canAccessPath, filterDomainsByRole, findDomainForPath, isDomainActive, navLabel, pluginCapabilities, pluginPageRoles } from "../config/admin-nav";
 import DomainSubnav from "./DomainSubnav";
 import { usePluginMenu } from "./PluginMenuProvider";
 import { useSession, useSessionRole } from "./SessionProvider";
@@ -55,6 +55,8 @@ export default function AdminShell() {
         platformOperator: session.platformOperator === true,
         disabledPaths: session.disabledPaths,
         pluginPageRoles: pluginPageRoles(pluginItems),
+        pluginCapabilities: pluginCapabilities(pluginItems),
+        capabilities: session.capabilities,
       }
     : undefined;
   const domains = useMemo(() => filterDomainsByRole(allDomains, role, audience), [allDomains, role, audience]);
@@ -198,14 +200,26 @@ export default function AdminShell() {
           </span>
         </div>
 
-        {session?.passkeyEnrollmentRequired && !pathname.endsWith("/security/account") ? (
+        {session?.passkeyEnrollmentRequired && !pathname.endsWith("/users/me") ? (
           <div className="jf-banner jf-banner--warn" role="status">
             <span className="jf-banner__icon" aria-hidden="true">!</span>
             <div>
               <div className="jf-banner__title">{t("security.account.passkeys.requiredTitle")}</div>
               <div className="jf-banner__sub">
                 {t("security.account.passkeys.required")}{" "}
-                <Link to="/admin/security/account?enrol=passkey">{t("security.account.passkeys.add")}</Link>
+                <Link to="/admin/users/me?enrol=passkey">{t("security.account.passkeys.add")}</Link>
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {session?.mfaEnrollmentRequired && !session.passkeyEnrollmentRequired && !pathname.endsWith("/users/me") ? (
+          <div className="jf-banner jf-banner--warn" role="status">
+            <span className="jf-banner__icon" aria-hidden="true">!</span>
+            <div>
+              <div className="jf-banner__title">{t("security.account.mfaRequired.title")}</div>
+              <div className="jf-banner__sub">
+                {t("security.account.mfaRequired.body")}{" "}
+                <Link to="/admin/users/me">{t("security.account.mfaRequired.action")}</Link>
               </div>
             </div>
           </div>

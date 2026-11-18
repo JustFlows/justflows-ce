@@ -117,7 +117,8 @@ describe("inline canvas editing", () => {
 
     const editable = container.querySelector('[contenteditable="true"]');
     expect(editable).toBeTruthy();
-    expect(editable?.tagName).toBe("H2");
+    /** The editor sits inside the page's own heading element (justflows-ce#311). */
+    expect(editable?.parentElement?.tagName).toBe("H2");
 
     fireEvent.focus(editable!);
     expect(screen.queryByTitle("Bold (⌘B)")).not.toBeInTheDocument();

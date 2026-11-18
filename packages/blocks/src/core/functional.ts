@@ -47,7 +47,7 @@ export const functionalBlocks: BlockDefinition[] = [
       return `<${tag} class="jf-list${p["listStyle"] === "checklist" ? " jf-list--checklist" : ""}"${ordered ? ` start="${p["start"]}"${p["reversed"] ? " reversed" : ""}` : ""} style="list-style-type:${marker};--jf-list-gap:${p["gap"]}px">${children}</${tag}>`; }, ["core.list-item"]),
   define("list-item", "List item", "content", { text: { type: "richtext", default: "" }, checked: bool() },
     r => ({ text: sanitizeRichText(text(r["text"])), checked: flag(r["checked"]) }),
-    (p, children = "") => `<li class="jf-list-item"><label class="jf-list-check"><input type="checkbox"${p["checked"] ? " checked" : ""} aria-label="${esc(sanitizePlainText(String(p["text"])) || "Checklist item")}"></label><div class="jf-list-item-content">${p["text"]}${children}</div></li>`, ["core.list"]),
+    (p, children = "") => `<li class="jf-list-item"><label class="jf-list-check"><input type="checkbox"${p["checked"] ? " checked" : ""} aria-label="${esc(sanitizePlainText(String(p["text"])) || "Checklist item")}"></label><div class="jf-list-item-content"><span data-jf-inline="text">${p["text"]}</span>${children}</div></li>`, ["core.list"]),
   define("table", "Table", "content", { caption: txt(), rows: { type: "textarea", default: [["", ""], ["", ""]] }, header: bool(true), footer: bool(), striped: bool(true), borders: bool(true), fixedLayout: bool(), align: select(["left", "center", "right"], "left"), cellPadding: num(12) },
     r => ({ caption: text(r["caption"]), rows: (Array.isArray(r["rows"]) ? r["rows"] : []).slice(0, 100).map(row => (Array.isArray(row) ? row : []).slice(0, 20).map(cell => text(cell))), header: flag(r["header"], true), footer: flag(r["footer"]), striped: flag(r["striped"], true), borders: flag(r["borders"], true), fixedLayout: flag(r["fixedLayout"]), align: choice(r["align"], ["left", "center", "right"], "left"), cellPadding: number(r["cellPadding"], 12, 0, 64) }),
     p => { const rows = p["rows"] as string[][]; const width = Math.max(0, ...rows.map(row => row.length));
@@ -87,3 +87,8 @@ export const functionalBlocks: BlockDefinition[] = [
   define("tab", "Tab panel", "content", { title: txt("Tab") }, r => ({ title: text(r["title"], "Tab") }),
     (p, children = "") => `<section class="jf-tab" data-jf-title="${esc(String(p["title"]))}"><h3 class="jf-tab-heading">${esc(String(p["title"]))}</h3>${children}</section>`, true),
 ];
+
+/** List items are edited in place on the canvas, with the list's own inline formatting. */
+for (const block of functionalBlocks) {
+  if (block.type === "core.list-item") block.inline = { text: { mode: "rich", multiline: false, formats: ["bold", "italic", "underline", "link", "code"] } };
+}

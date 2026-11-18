@@ -139,19 +139,29 @@ annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`).
 | Group | Tools |
 | --- | --- |
 | Discovery | `site_describe` (start here), `blocks_catalog`, `content_types_list`, `content_types_get` |
-| Content | `content_list` (type, status, locale, search, author), `content_get`, `content_create`, `content_update`, `content_delete` (trash), `content_publish`, `content_unpublish`, `content_schedule`, `content_revisions_list`, `content_revision_get` |
+| Content | `content_list` (type, status, locale, search, author), `content_get`, `content_create`, `content_update`, `content_delete` (trash), `content_publish`, `content_unpublish`, `content_schedule`, `content_revisions_list`, `content_revision_get`, `content_accessibility_check` |
 | Media | `media_list`, `media_get`, `media_upload` (public URL or base64), `media_update` (alt text, caption, focal point), `media_delete` |
 | Menus | `menus_list`, `menus_get`, `menus_upsert`, `menus_delete` |
 | Comments | `comments_list`, `comments_moderate` (one or many), `comments_edit`, `comments_reply`, `comments_delete` |
 | Content types | `content_types_create`, `content_types_update`, `content_types_delete` |
 | Taxonomies | `taxonomies_list`, `taxonomies_create`, `taxonomies_update`, `taxonomies_delete`, `terms_list`, `terms_create`, `terms_update`, `terms_delete`, `content_terms_get`, `content_terms_set` |
 | Site | `settings_get`, `settings_update`, `languages_list/create/update/delete`, `redirects_list/create/update`, `permalinks_get/update`, `plugins_list/activate/deactivate`, `themes_list/activate`, `cache_stats`, `cache_clear`, `static_export_status`, `static_export_run`, `static_export_clear`, `trash_list/restore/purge`, `analytics_summary`, `comment_rules_list/create/delete`, `spam_terms_list/create/delete`, `cookies_get/update`, `email_templates_list/update/restore/preview`, `email_design_update/restore`, `site_health`, `site_diagnostics` |
-| Design | `headers_get`, `headers_options`, `headers_update`, `template_parts_get/update` (the footer is part `footer`), `widget_areas_list/get/create/update/delete/discard_draft`, `widget_layout_update`, `content_set_header`, `templates_list/get/update/discard_draft/reset`, `themes_customize_get/update/discard_draft`, `reusable_blocks_list/save/delete`, `patterns_list/get/save/delete/export/import`, `error_pages_get/update` |
+| Design | `headers_get`, `headers_options`, `headers_update`, `template_parts_get/update` (the footer is part `footer`), `widget_areas_list/get/create/update/delete/discard_draft`, `widget_layout_update`, `content_set_header`, `templates_list/get/update/discard_draft/reset`, `template_parts_accessibility_check`, `templates_accessibility_check`, `themes_customize_get/update/discard_draft`, `reusable_blocks_list/save/delete`, `patterns_list/get/save/delete/export/import`, `error_pages_get/update` |
 | Users & roles | `users_list/get/create/update/delete`, `roles_list/create/update/delete`. Listed only when the key or OAuth grant turns on **users & roles tools**, even with `users:manage`. |
 
 A full-admin key (every capability except `ai:use`, with users & roles tools turned on) is offered every tool above. A session still only sees the tools its capabilities allow.
 
 Not exposed, because the result is a secret or the action replaces the running install: the OpenAPI document, the event catalog, webhook endpoints and their signing secrets, API key creation, plugin and theme zip upload, and applying a core update. The management API has no taxonomy-term endpoints yet, so there are no taxonomy tools. Sending a test email stays in the admin.
+
+**Accessibility checks.** `content_accessibility_check`,
+`template_parts_accessibility_check` and `templates_accessibility_check` run
+the page builder's checks (missing alt text, empty links and buttons, skipped
+heading levels, contrast, content hidden on phones, reading order, tables
+without headers) and return each issue's code, severity, block id and type,
+field and message. `content_create` and `content_update` add the same issues
+for the blocks they save under `accessibility` (at most 20; the check tool
+lists them all). Plugin and theme blocks are reported as not checked. The
+checks help; they do not prove a page is accessible.
 
 **Agent content is validated.** `content_create` and `content_update` check
 block bodies against the live block registry before anything is written:

@@ -29,10 +29,15 @@ export const AUDIT_ACTIONS = [
   "auth.password_changed",
   "auth.password_reset",
   "auth.password_reset_requested",
+  "auth.password_setup_sent",
   "auth.password_reset_failed",
   "auth.2fa_enabled",
   "auth.2fa_disabled",
   "auth.passkey_registered",
+  "auth.identity_linked",
+  "auth.identity_unlinked",
+  "security.mfa_policy_changed",
+  "security.oidc_providers_changed",
   "auth.passkey_renamed",
   "auth.passkey_revoked",
   "auth.recovery_codes_regenerated",
@@ -42,7 +47,16 @@ export const AUDIT_ACTIONS = [
   "user.role_changed",
   "user.access_changed",
   "user.deleted",
+  "privacy.exported",
+  "privacy.erased",
+  "privacy.request_created",
+  "privacy.request_cancelled",
+  "privacy.request_completed",
+  "privacy.request_declined",
+  "privacy.address_confirmed",
+  "user.birth_date_changed",
   "workspace.owner_updated",
+  "workspace.created_mail",
   "workspace.sites_requested",
   "site.owner_updated",
   "access.role_created",
@@ -62,6 +76,9 @@ export const AUDIT_ACTIONS = [
   "extension.auto_update_toggled",
   "extension.auto_update_skipped",
   "extension.auto_update_failed",
+  "extension.trust_changed",
+  "extension.operator_trusted",
+  "extension.operator_untrusted",
   "css_provider.installed",
   "css_provider.activated",
   "core.updated",
@@ -123,6 +140,15 @@ export const AUDIT_ACTIONS = [
   "content.revision_restored",
   "content.revision_discarded",
   "content.revision_pruned",
+  "design.part_published",
+  "design.part_reset",
+  "design.presets_published",
+  "design.reusable_published",
+  "design.reusable_deleted",
+  "design.styles_published",
+  "design.widgets_published",
+  "design.patterns_changed",
+  "design.menu_saved",
   "trash.trashed",
   "trash.restored",
   "trash.purged",
@@ -146,6 +172,9 @@ export const AUDIT_ACTIONS = [
   "backup.delivered",
   "backup.schedule_changed",
   "backup.schedule_started",
+  "backup.network_restored",
+  "custom_code.changed",
+  "custom_code.safe_mode",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -155,6 +184,7 @@ export type AuditOutcome = "success" | "failure";
 export const SECURITY_AUDIT_ACTIONS = AUDIT_ACTIONS.filter((action) =>
   action.startsWith("auth.")
   || action.startsWith("user.")
+  || action.startsWith("privacy.")
   || action.startsWith("access.")
   || action.startsWith("apikey.")
   || action.startsWith("plugin.")
@@ -168,6 +198,7 @@ export const SECURITY_AUDIT_ACTIONS = AUDIT_ACTIONS.filter((action) =>
   || action.startsWith("cdn.")
   || action.startsWith("storage.")
   || action.startsWith("domain.")
+  || action.startsWith("custom_code.")
   || action === "workspace.owner_updated"
   || action === "site.owner_updated"
   || action === "public_api.toggled"

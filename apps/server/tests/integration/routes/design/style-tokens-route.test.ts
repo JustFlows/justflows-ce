@@ -64,10 +64,15 @@ vi.mock("../../../../src/lib/themes/theme-customize.js", async (importOriginal) 
   const actual = await importOriginal<typeof import("../../../../src/lib/themes/theme-customize.js")>();
   return { ...actual, getThemeMods: async () => ({ sample: { "--brand-tilt": 3 } }) };
 });
-vi.mock("../../../../src/middleware/auth.js", () => ({
-  requireRole: () => (_req: express.Request, _res: express.Response, next: express.NextFunction) =>
-    next(),
-}));
+vi.mock("../../../../src/middleware/auth.js", async () => {
+  const { ROLE_CAPABILITIES } = await import("@justflows/sdk");
+  const requireRole = (..._roles: string[]) => (_req: express.Request, _res: express.Response, next: express.NextFunction) =>
+    next();
+  /** Design routes check capabilities (justflows-ce#314); the built-in roles holding one stand in for it. */
+  const requireCapability = (capability: string) =>
+    requireRole(...Object.keys(ROLE_CAPABILITIES).filter((r) => ROLE_CAPABILITIES[r]!.includes(capability)));
+  return { requireRole, requireCapability };
+});
 
 const { default: themesRoutes } = await import("../../../../src/routes/design/themes.js");
 

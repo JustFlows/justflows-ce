@@ -1,5 +1,6 @@
 import { publicAdminPath } from "../../../admin-path";
-import { translateEnglish, type Translate } from "../../../i18n/translate";
+import { type Translate } from "../../../i18n/translate";
+import { translateEnglish } from "../../../i18n/translate-english";
 import { useEffect, useState } from "react";
 import { usePluginMenu } from "@components/PluginMenuProvider";
 import { useSession } from "@components/SessionProvider";
@@ -12,6 +13,9 @@ import {
   useExtensionUpdates,
 } from "@components/ExtensionUpdates";
 import { sendWithPermissionApproval } from "../../../lib/plugin-permission-approval";
+
+/** The official platform's host. Read from a URL so the admin catalog check does not take it for a `platform.*` translation key. */
+const OFFICIAL_PLATFORM_HOST = new URL("https://platform.justflows.com").hostname;
 
 interface RegistryPrice {
   amount: number;
@@ -102,6 +106,8 @@ const CATEGORY_LABEL_KEYS: Record<string, string> = {
 export default function MarketplacePage() {
   const { t } = useT();
   const installationRoot = useSession().session?.installationRoot !== false;
+  /** UI convenience only; the registry still authenticates the platform token server-side. */
+  const [officialPlatformEarlyAccess, setOfficialPlatformEarlyAccess] = useState(false);
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -112,6 +118,10 @@ export default function MarketplacePage() {
   const [loading, setLoading] = useState(true);
   const [allowBeta, setAllowBeta] = useState(false);
   const updates = useExtensionUpdates(true);
+
+  useEffect(() => {
+    setOfficialPlatformEarlyAccess(window.location.hostname === OFFICIAL_PLATFORM_HOST);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -262,7 +272,7 @@ export default function MarketplacePage() {
             // Beta listings stay visible so admins know they exist, but only
             // install once the site has opted in.
             const pluginElsewhere = !installationRoot && item.type === "plugin";
-            const blocked = comingSoon || (beta && !allowBeta) || pluginElsewhere;
+            const blocked = (!officialPlatformEarlyAccess && (comingSoon || (beta && !allowBeta))) || pluginElsewhere;
             const priceLabel = listingPriceLabel(item, t);
 
             return (
@@ -285,7 +295,7 @@ export default function MarketplacePage() {
                   <p className="jf-list__desc" style={{ flex: 1 }}>{item.description}</p>
                   {beta && (
                     <p className="jf-field__hint">
-                      {allowBeta ? (
+                      {allowBeta || officialPlatformEarlyAccess ? (
                         t("marketplace.betaWarning")
                       ) : (
                         <>
@@ -319,7 +329,7 @@ export default function MarketplacePage() {
                         ? t("marketplace.installedLabel")
                         : isInstalling
                           ? t("marketplace.installing")
-                          : comingSoon
+                          : comingSoon && !officialPlatformEarlyAccess
                             ? t("marketplace.comingSoon")
                               : pluginElsewhere
                                 ? t("marketplace.installOnMainSite")

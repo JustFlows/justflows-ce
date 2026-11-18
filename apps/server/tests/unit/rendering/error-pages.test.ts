@@ -18,6 +18,15 @@ describe("ErrorPageConfigSchema", () => {
     expect(ErrorPageConfigSchema.safeParse({ "403": { source: "builtin" } }).success).toBe(true);
   });
 
+  it("accepts only the built-in default or a selected page for unknown websites", () => {
+    expect(ErrorPageConfigSchema.safeParse({ websiteNotFound: { source: "builtin" } }).success).toBe(true);
+    expect(ErrorPageConfigSchema.safeParse({ websiteNotFound: { source: "theme" } }).success).toBe(false);
+    expect(ErrorPageConfigSchema.safeParse({ websiteNotFound: { source: "page" } }).success).toBe(false);
+    expect(ErrorPageConfigSchema.safeParse({
+      websiteNotFound: { source: "page", pageId: "2c1d0e8a-4b3f-41a2-9c7d-0e1f2a3b4c5d" },
+    }).success).toBe(true);
+  });
+
   it("requires a pageId when the source is a page", () => {
     expect(ErrorPageConfigSchema.safeParse({ "404": { source: "page" } }).success).toBe(false);
     expect(

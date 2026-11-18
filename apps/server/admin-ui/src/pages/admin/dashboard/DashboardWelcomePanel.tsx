@@ -102,7 +102,7 @@ export default function DashboardWelcomePanel({
   if (role !== "administrator" || state.dismissed) return null;
 
   const audience = session
-    ? { installationRoot: session.installationRoot === true, platformOperator: session.platformOperator === true }
+    ? { installationRoot: session.installationRoot === true, platformOperator: session.platformOperator === true, capabilities: session.capabilities }
     : undefined;
   const cards = DISCOVERY_CARDS.filter((card) => card.external || canAccessPath(role, card.href, audience));
   const expanded = !state.collapsed;

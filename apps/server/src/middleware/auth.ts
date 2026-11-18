@@ -23,14 +23,32 @@ function bindSession(req: Request, res: Response, session: SessionPayload): bool
   return true;
 }
 
+/**
+ * An account whose role must use a second factor (the MFA policy, or a
+ * passkey `require` policy) and has none may only reach the APIs that enrol
+ * one. Enforced here, on the server, not only by the admin shell.
+ */
+async function enrolmentAllows(req: Request, res: Response, session: SessionPayload): Promise<boolean> {
+  const { allowedDuringEnrolment, enrolmentRequirement } = await import("../lib/auth/mfa-policy.js");
+  if (allowedDuringEnrolment(req.originalUrl ?? req.url)) return true;
+  const required = await enrolmentRequirement(session).catch(() => null);
+  if (!required) return true;
+  res.status(403).json({
+    error: required === "passkey" ? "Add a passkey to your account first" : "Turn on two-factor authentication for your account first",
+    code: required === "passkey" ? "passkey_enrollment_required" : "mfa_enrollment_required",
+  });
+  return false;
+}
+
 export function requireSession(req: Request, res: Response, next: NextFunction): void {
   resolveSession(req, res)
-    .then((session) => {
+    .then(async (session) => {
       if (!session) {
         res.status(401).json({ error: "Unauthorized" });
         return;
       }
       if (!bindSession(req, res, session)) return;
+      if (!(await enrolmentAllows(req, res, session))) return;
       next();
     })
     .catch(next);
@@ -39,7 +57,7 @@ export function requireSession(req: Request, res: Response, next: NextFunction):
 export function requireRole(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     resolveSession(req, res)
-      .then((session) => {
+      .then(async (session) => {
         if (!session) {
           res.status(401).json({ error: "Unauthorized" });
           return;
@@ -49,6 +67,7 @@ export function requireRole(...roles: string[]) {
           return;
         }
         if (!bindSession(req, res, session)) return;
+        if (!(await enrolmentAllows(req, res, session))) return;
         next();
       })
       .catch(next);
@@ -77,6 +96,7 @@ export function requireCapability(
         }
         syncCsrfCookie(req, res, session);
         req.session = session;
+        if (!(await enrolmentAllows(req, res, session))) return;
         next();
       })
       .catch(next);

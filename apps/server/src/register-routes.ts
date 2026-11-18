@@ -3,6 +3,8 @@ import { rateLimit } from "express-rate-limit";
 import { isInstalled, requireInstalled, blockIfInstalled } from "./middleware/install-guard.js";
 import { publicApiGuard } from "./middleware/public-api.js";
 import { publicApiCors } from "./middleware/public-api-cors.js";
+import { upgradeBlocksOnRead } from "./lib/rendering/editor-block-upgrade.js";
+import { rejectOversizedDocuments } from "./lib/rendering/block-document-limits.js";
 import { publicApiRateLimit } from "./middleware/public-api-rate-limit.js";
 import { publicPageRateLimit } from "./middleware/public-page-rate-limit.js";
 import { logSafe } from "./lib/security/log-safe.js";
@@ -12,6 +14,7 @@ import { setCsrfCookie } from "./lib/auth/session.js";
 import { adminAccessGate } from "./middleware/admin-access.js";
 import { getAdminPathConfig, toInternalAdminPath } from "./lib/admin/admin-path.js";
 import { requireSiteFeature } from "./lib/tenancy/site-features.js";
+import { requireMultisite } from "./lib/tenancy/multisite.js";
 
 /** Admin SPA document routes, including the common trailing-slash root. */
 export const ADMIN_PAGE_PATH_RE = /^\/admin(?:\/.*)?$/;
@@ -46,6 +49,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
       console.error("[justflows] Pending migrations failed:", err);
       throw err instanceof Error ? err : new Error(String(err));
     }
+    const { warnIfMultisiteDataDisabled } = await import("./lib/tenancy/multisite.js");
+    await warnIfMultisiteDataDisabled();
     const { startRevisionJobs } = await import("./lib/content/revision-jobs.js");
     startRevisionJobs();
     const { startCoreAutoUpdateJob } = await import("./lib/updates/core-auto-update.js");
@@ -54,12 +59,17 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startExtensionAutoUpdateJob();
     const { startAdvisoryRefreshJob } = await import("./lib/security/security-advisories.js");
     await startAdvisoryRefreshJob();
+    const { startPluginTrustJobs } = await import("./lib/extensions/plugin-trust.js");
+    await startPluginTrustJobs();
     const { startTrashPurgeJob } = await import("./lib/content/trash.js");
     startTrashPurgeJob();
     const { startInboundMailJob } = await import("./lib/email/inbound-imap.js");
     startInboundMailJob();
-    const { startDeletedSitePurgeJob } = await import("./lib/tenancy/purge-deleted-job.js");
-    startDeletedSitePurgeJob();
+    const { multisiteEnabled } = await import("./lib/tenancy/multisite.js");
+    if (multisiteEnabled()) {
+      const { startDeletedSitePurgeJob } = await import("./lib/tenancy/purge-deleted-job.js");
+      startDeletedSitePurgeJob();
+    }
     const { startCommentSpamPurgeJob } = await import("./lib/comments/comments-spam-purge.js");
     startCommentSpamPurgeJob();
     const { startDomainCheckJob } = await import("./lib/domains/custom-domains.js");
@@ -116,6 +126,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: commentRulesRoutes },
     { default: commentSpamTermsRoutes },
     { default: usersRoutes },
+    { default: privacyRequestRoutes },
     { default: settingsRoutes },
     { default: securityRoutes },
     { default: themesRoutes },
@@ -158,6 +169,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/comments/comment-rules.js"),
     import("./routes/comments/comment-spam-terms.js"),
     import("./routes/auth/users.js"),
+    import("./routes/auth/privacy-requests.js"),
     import("./routes/settings/settings.js"),
     import("./routes/system/security.js"),
     import("./routes/design/themes.js"),
@@ -202,7 +214,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use(blockIfInstalled);
 
   app.use("/api/search", requireInstalled, (await import("./routes/public/search.js")).default);
-  app.use("/api/content", requireInstalled, contentRoutes);
+  app.use("/api/content", requireInstalled, rejectOversizedDocuments, upgradeBlocksOnRead, contentRoutes);
   app.use("/api/content-visibility", requireInstalled, (await import("./routes/content/visibility.js")).default);
   app.use("/api/trash", requireInstalled, requireSiteFeature("feature.trash"), trashRoutes);
   app.use("/api/media", requireInstalled, mediaRoutes);
@@ -210,9 +222,10 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/comment-rules", requireInstalled, requireSiteFeature("feature.comments"), commentRulesRoutes);
   app.use("/api/comment-spam-terms", requireInstalled, requireSiteFeature("feature.comments"), commentSpamTermsRoutes);
   app.use("/api/users", requireInstalled, usersRoutes);
-  app.use("/api/platform/custom-domains", requireInstalled, (await import("./routes/platform/custom-domains.js")).default);
-  app.use("/api/platform", requireInstalled, (await import("./routes/platform/tenants.js")).default);
-  app.use("/api/signup", requireInstalled, (await import("./routes/public/signup.js")).default);
+  app.use("/api/privacy-requests", requireInstalled, privacyRequestRoutes);
+  app.use("/api/platform/custom-domains", requireInstalled, requireMultisite, (await import("./routes/platform/custom-domains.js")).default);
+  app.use("/api/platform", requireInstalled, requireMultisite, (await import("./routes/platform/tenants.js")).default);
+  app.use("/api/signup", requireInstalled, requireMultisite, (await import("./routes/public/signup.js")).default);
   const account = await import("./routes/public/account.js");
   app.use("/api/account", requireInstalled, account.apiRouter);
   app.use("/api/platform-account", requireInstalled, account.apiRouter);
@@ -238,14 +251,16 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/import", requireInstalled, importRoutes);
   app.use("/api/static-export", requireInstalled, staticExportRoutes);
   app.use("/api/languages", requireInstalled, requireSiteFeature("feature.languages"), languagesRoutes);
-  app.use("/api/menus", requireInstalled, menusRoutes);
-  app.use("/api/reusable-blocks", requireInstalled, reusableBlocksRoutes);
-  app.use("/api/template-parts", requireInstalled, templatePartsRouter);
-  app.use("/api/widgets", requireInstalled, (await import("./routes/design/widgets.js")).default);
-  app.use("/api/templates", requireInstalled, templatesRoutes);
+  app.use("/api/menus", requireInstalled, rejectOversizedDocuments, upgradeBlocksOnRead, menusRoutes);
+  app.use("/api/reusable-blocks", requireInstalled, rejectOversizedDocuments, upgradeBlocksOnRead, reusableBlocksRoutes);
+  app.use("/api/template-parts", requireInstalled, rejectOversizedDocuments, upgradeBlocksOnRead, templatePartsRouter);
+  app.use("/api/widgets", requireInstalled, rejectOversizedDocuments, upgradeBlocksOnRead, (await import("./routes/design/widgets.js")).default);
+  app.use("/api/templates", requireInstalled, rejectOversizedDocuments, upgradeBlocksOnRead, templatesRoutes);
   app.use("/api/error-pages", requireInstalled, errorPagesRoutes);
-  app.use("/api/patterns", requireInstalled, patternsRoutes);
-  app.use("/api/headers", requireInstalled, siteHeaderRoutes);
+  app.use("/api/patterns", requireInstalled, rejectOversizedDocuments, patternsRoutes);
+  app.use("/api/headers", requireInstalled, rejectOversizedDocuments, upgradeBlocksOnRead, siteHeaderRoutes);
+  app.use("/api/document-history", requireInstalled, upgradeBlocksOnRead, (await import("./routes/design/document-history.js")).default);
+  app.use("/api/style-presets", requireInstalled, (await import("./routes/design/style-presets.js")).default);
   app.use("/api/blocks", requireInstalled, blocksRoutes);
   app.use("/api/content-types", requireInstalled, contentTypesRoutes);
   app.use("/api/taxonomies", requireInstalled, (await import("./routes/content/taxonomies.js")).default);
@@ -256,6 +271,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/diagnostics", requireInstalled, diagnosticsRoutes);
   app.use("/api/backups", requireInstalled, backupRoutes);
   app.use("/api/cookies", requireInstalled, cookiesRoutes);
+  app.use("/api/custom-code", requireInstalled, requireSiteFeature("feature.customCode"), (await import("./routes/settings/custom-code.js")).default);
   app.use("/api/roles", requireInstalled, rolesRoutes);
   app.use("/api/cdn", requireInstalled, requireSiteFeature("feature.cdn"), (await import("./routes/settings/cdn.js")).default);
   app.use("/api/storage", requireInstalled, (await import("./routes/settings/storage.js")).default);
@@ -274,6 +290,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     apiKeyAuth,
     ...manageApiRateLimit,
     manageApiCors,
+    rejectOversizedDocuments,
     manageApiRoutes,
   );
 

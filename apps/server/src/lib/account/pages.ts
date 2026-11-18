@@ -46,3 +46,17 @@ export async function accountPageExclusions(siteId: string) {
     });
   });
 }
+
+/** The published account page that holds the "Your data" block, wherever the site moved it. */
+export async function accountDataPageUrl(siteId: string): Promise<string | null> {
+  try {
+    const db = await getDb();
+    const rows = await db.query<{ id: string; blocks: unknown }>(
+      "SELECT id, blocks FROM content WHERE site_id = ? AND type = 'account' AND status = 'published' AND trashed_at IS NULL LIMIT 50", [siteId]);
+    const holder = rows.find((row) => (typeof row.blocks === "string" ? row.blocks : JSON.stringify(row.blocks ?? "")).includes('"core.account-data"'));
+    if (!holder) return null;
+    return (await accountPages(siteId)).find((page) => page.content.id === String(holder.id))?.url ?? null;
+  } catch {
+    return null;
+  }
+}

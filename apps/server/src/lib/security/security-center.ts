@@ -25,6 +25,7 @@ export const SECURITY_CHECK_IDS = [
   "transport.proxy",
   "headers.policy",
   "extensions.integrity",
+  "extensions.trust",
   "recovery.backup",
 ] as const;
 
@@ -96,6 +97,22 @@ export interface SecurityCenterFacts {
         failed: number;
         core: "verified" | "local" | "absent" | "failed";
       };
+  /** Plugin trust states on this site (justflows-ce#270). */
+  pluginTrust:
+    | { state: "unknown" }
+    | {
+        state: "known";
+        verified: number;
+        operator: number;
+        legacy: number;
+        unverified: number;
+        legacyUntil: string | null;
+        /**
+         * False while no attestation list was ever received and the sandbox is
+         * off: nothing can be verified yet, so the check is left out.
+         */
+        live: boolean;
+      };
   backup:
     | { state: "unknown" }
     | {
@@ -116,7 +133,7 @@ export interface SecurityCenterReport {
 }
 
 const UPDATES_HREF = "/admin/updates";
-const ACCOUNT_HREF = "/admin/security/account";
+const ACCOUNT_HREF = "/admin/users/me";
 const API_KEYS_HREF = "/admin/settings/api";
 const HEADERS_HREF = "/admin/security/headers";
 const BACKUP_HREF = "/admin/tools";
@@ -686,6 +703,29 @@ function integrityCheck(facts: SecurityCenterFacts): SecurityCheck {
   });
 }
 
+const PLUGINS_HREF = "/admin/plugins";
+
+/**
+ * Whether every plugin on this site is verified by Justflows or trusted by the
+ * operator. Verified is a review outcome, not a safety guarantee, and every
+ * plugin still runs in the server process.
+ */
+function pluginTrustCheck(facts: SecurityCenterFacts): SecurityCheck {
+  const base = { id: "extensions.trust", kind: "configuration", scope: "site", href: PLUGINS_HREF } as const;
+  const trust = facts.pluginTrust;
+  if (trust.state === "unknown") return row(facts, { ...base, status: "unknown", severity: "info", summary: "unavailable" });
+  const evidence: Record<string, string | number> = {
+    verified: trust.verified,
+    operator: trust.operator,
+    legacy: trust.legacy,
+    unverified: trust.unverified,
+    ...(trust.legacyUntil ? { legacyUntil: trust.legacyUntil } : {}),
+  };
+  if (trust.unverified > 0) return row(facts, { ...base, status: "warn", severity: "medium", summary: "unverified", evidence });
+  if (trust.legacy > 0) return row(facts, { ...base, status: "warn", severity: "low", summary: "legacy", evidence });
+  return row(facts, { ...base, status: "pass", severity: "info", summary: "clear", evidence });
+}
+
 function backupCheck(facts: SecurityCenterFacts): SecurityCheck {
   const base = { id: "recovery.backup", kind: "configuration", scope: "site", href: BACKUP_HREF } as const;
   const backup = facts.backup;
@@ -718,6 +758,7 @@ function backupCheck(facts: SecurityCenterFacts): SecurityCheck {
 
 /** Turn a snapshot into checks. Does not read the database or the network. */
 export function evaluateSecurityCenter(facts: SecurityCenterFacts): SecurityCheck[] {
+  const trustLive = facts.pluginTrust.state !== "known" || facts.pluginTrust.live;
   return [
     nodeCheck(facts),
     updateCheck(facts),
@@ -732,6 +773,7 @@ export function evaluateSecurityCenter(facts: SecurityCenterFacts): SecurityChec
     proxyCheck(facts),
     headersCheck(facts),
     integrityCheck(facts),
+    ...(trustLive ? [pluginTrustCheck(facts)] : []),
     backupCheck(facts),
   ];
 }

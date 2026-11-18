@@ -19,6 +19,7 @@ import {
   type PluginDatabasesApi,
   type PluginTenancyApi,
   type PluginNetworkApi,
+  type PluginOutboundApi,
   type PluginQuotasApi,
   type PluginUsersApi,
   type PluginBlockDefinition,
@@ -79,6 +80,8 @@ export type PluginTenancyFactory = (
 ) => PluginTenancyApi;
 /** `ctx.network` for a plugin that holds `platform:network`. */
 export type PluginNetworkFactory = (pluginId: string) => PluginNetworkApi;
+/** `ctx.outbound` for a plugin holding `network:outbound`. */
+export type PluginOutboundFactory = (pluginId: string) => PluginOutboundApi;
 export type PluginQuotasFactory = (
   pluginId: string,
   permissions: ReadonlySet<PluginPermission>,
@@ -276,6 +279,7 @@ export class PluginLoader {
   private readonly databasesFactory: PluginDatabasesFactory;
   private readonly tenancyFactory: PluginTenancyFactory;
   private readonly networkFactory: PluginNetworkFactory | undefined;
+  private readonly outboundFactory: PluginOutboundFactory | undefined;
   private readonly quotasFactory: PluginQuotasFactory;
   private readonly quotasCleanup: ((pluginId: string) => void) | undefined;
   private readonly contentFactory: PluginContentFactory;
@@ -320,6 +324,7 @@ export class PluginLoader {
       databasesFactory?: PluginDatabasesFactory;
       tenancyFactory?: PluginTenancyFactory;
       networkFactory?: PluginNetworkFactory;
+      outboundFactory?: PluginOutboundFactory;
       quotasFactory?: PluginQuotasFactory;
       quotasCleanup?: (pluginId: string) => void;
       contentFactory?: PluginContentFactory;
@@ -399,6 +404,7 @@ export class PluginLoader {
       options?.databasesFactory ?? ((_pluginId, _siteId, _permissions) => NULL_DATABASES);
     this.tenancyFactory = options?.tenancyFactory ?? (() => NULL_TENANCY);
     this.networkFactory = options?.networkFactory;
+    this.outboundFactory = options?.outboundFactory;
     this.quotasFactory = options?.quotasFactory ?? (() => NULL_QUOTAS);
     this.quotasCleanup = options?.quotasCleanup;
     this.contentFactory = options?.contentFactory ?? (() => NULL_CONTENT);
@@ -781,12 +787,75 @@ export class PluginLoader {
           }
           return users.removeRole(target, role, actor);
         },
+        sendPasswordSetup: async (target, actor) => {
+          if (!permissions.has("users:manage")) {
+            throw new Error(
+              `Plugin "${pluginId}" cannot invite users without the "users:manage" permission`,
+            );
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          if (!users.sendPasswordSetup || !users.find) {
+            return { ok: false, status: 501, error: "Password setup links are not available in this runtime." };
+          }
+          /** Only people this plugin is responsible for: never an administrator it does not manage. */
+          const user = await users.find(target);
+          const own = user?.roles.some((role) => this.roleRegistry.get(role)?.pluginId === pluginId) ?? false;
+          if (!user || !own) {
+            return { ok: false, status: 403, error: "Plugins can only invite users who hold a role they registered." };
+          }
+          return users.sendPasswordSetup({ userId: user.id }, actor);
+        },
+        delete: async (target, actor) => {
+          if (!permissions.has("users:manage")) {
+            throw new Error(`Plugin "${pluginId}" cannot delete users without the "users:manage" permission`);
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          if (!users.delete || !users.find) {
+            return { ok: false, status: 501, error: "Deleting users is not available in this runtime." };
+          }
+          /** Only accounts wholly this plugin's: every role they hold is one it registered. */
+          const user = await users.find(target);
+          if (!user) return { ok: false, status: 404, error: "User not found." };
+          const own = user.roles.length > 0 && user.roles.every((role) => this.roleRegistry.get(role)?.pluginId === pluginId);
+          if (!own) return { ok: false, status: 403, error: "Plugins can only delete users whose every role they registered." };
+          return users.delete({ userId: user.id }, actor);
+        },
+        updateProfile: async (target, fields, actor) => {
+          if (!permissions.has("users:manage")) {
+            throw new Error(`Plugin "${pluginId}" cannot update users without the "users:manage" permission`);
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          if (!users.updateProfile || !users.find) {
+            return { ok: false, status: 501, error: "Updating profiles is not available in this runtime." };
+          }
+          const user = await users.find(target);
+          if (!user) return { ok: false, status: 404, error: "User not found." };
+          /** The member acting on their own account, or an account wholly this plugin's. */
+          const self = actor.userId === user.id;
+          const own = user.roles.length > 0 && user.roles.every((role) => this.roleRegistry.get(role)?.pluginId === pluginId);
+          if (!self && !own) return { ok: false, status: 403, error: "Plugins can only update the acting member's own account, or accounts whose every role they registered." };
+          return users.updateProfile({ userId: user.id }, fields, actor);
+        },
         get: async (userId) => {
           if (!permissions.has("users:manage")) {
             throw new Error(`Plugin "${pluginId}" cannot read users without the "users:manage" permission`);
           }
           const users = this.usersFactory(pluginId, siteId, permissions);
           return users.get ? users.get(userId) : null;
+        },
+        find: async (target) => {
+          if (!permissions.has("users:read") && !permissions.has("users:manage")) {
+            throw new Error(`Plugin "${pluginId}" cannot read users without the "users:read" permission`);
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          return users.find ? users.find(target) : null;
+        },
+        search: async (input) => {
+          if (!permissions.has("users:read") && !permissions.has("users:manage")) {
+            throw new Error(`Plugin "${pluginId}" cannot read users without the "users:read" permission`);
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          return users.search ? users.search(input) : [];
         },
       },
       diagnostics: {
@@ -850,6 +919,9 @@ export class PluginLoader {
       tenancy: this.tenancyFactory(pluginId, permissions),
       ...(this.networkFactory && permissions.has("platform:network")
         ? { network: this.networkFactory(pluginId) }
+        : {}),
+      ...(this.outboundFactory && permissions.has("network:outbound")
+        ? { outbound: this.outboundFactory(pluginId) }
         : {}),
       quotas: this.quotasFactory(pluginId, permissions, siteId),
       files: this.scopedFiles(pluginId, siteId, permissions),

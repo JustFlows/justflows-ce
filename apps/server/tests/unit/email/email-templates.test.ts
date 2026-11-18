@@ -6,6 +6,7 @@ describe("system email templates", () => {
     const definitions = listEmailTemplateDefinitions();
     expect(definitions.map((item) => item.key)).toContain("core.password-reset");
     expect(definitions.map((item) => item.key)).toContain("core.two-factor-disabled");
+    expect(definitions.map((item) => item.key)).toEqual(expect.arrayContaining(["core.data-address-confirmation", "core.data-request-admin"]));
     expect(definitions.every((item) => item.variables.length > 0)).toBe(true);
   });
 

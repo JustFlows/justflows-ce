@@ -247,6 +247,7 @@ router.post("/passkeys/register/verify", registerVerifyLimit, requireSession, as
       if (!(await setRecoveryCodes(session.userId, home, recoveryCodes))) recoveryCodes = undefined;
     }
 
+    (await import("../../lib/auth/mfa-policy.js")).forgetSecondFactors(session.userId);
     auditFromRequest(req, "auth.passkey_registered", {
       target: id,
       detail: `${verified.attestationFormat}; aaguid ${verified.aaguid}; ${verified.backupState ? "synced" : "device-bound"}`,
@@ -297,6 +298,13 @@ router.post("/passkeys/:id/revoke", manageLimit, requireSession, async (req, res
       res.status(409).json({ error: "Your role must use a passkey. Add another passkey before removing this one." });
       return;
     }
+    /** The MFA policy must not be weakened by removing the last factor. */
+    const { getMfaPolicy, secondFactorsOf, forgetSecondFactors } = await import("../../lib/auth/mfa-policy.js");
+    if ((await getMfaPolicy(session.siteId)).requiredRoles.includes(session.role) && passkeys.length === 1 && !(await secondFactorsOf(session.userId)).totp) {
+      res.status(409).json({ error: "Your role must use two-factor authentication. Turn on an authenticator app or add another passkey first." });
+      return;
+    }
+    forgetSecondFactors(session.userId);
     if (!(await deletePasskey(id, session.userId, row.site_id))) { res.status(404).json({ error: "Passkey not found" }); return; }
     await clearPasskeyDependants(session.userId, row.site_id);
 

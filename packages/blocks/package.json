@@ -6,7 +6,12 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "browser": "./dist/index.js",
+      "import": "./dist/node.js"
+    },
+    "./katex": {
+      "types": "./dist/math-katex.d.ts",
+      "import": "./dist/math-katex.js"
     }
   },
   "scripts": {

@@ -19,6 +19,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@justflows/check": "file:../check",
     "mysql2": "^3.24.6",
     "postgres": "^3.4.9"
   },

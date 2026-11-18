@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { retainPackageArchive } from "../../lib/backup/package-archives.js";
 import rateLimit from "express-rate-limit";
 import fs from "node:fs";
 import path from "node:path";
@@ -19,7 +20,7 @@ import { packagesInstalledDir } from "../../lib/extensions/packages-dir.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { recordInstalledPackageBaseline } from "../../lib/security/extension-integrity.js";
 import multer from "multer";
-import { sendServerError } from "../../lib/http/send-error.js";
+import { sendInputOrServerError, sendServerError } from "../../lib/http/send-error.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import { admitPackageUpload, multipartLimits, PACKAGE_UPLOAD_BYTES, withMultipartErrors } from "../../lib/security/upload-admission.js";
 
@@ -96,6 +97,13 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
       version: result.manifest.version,
       archiveDigest: result.digest,
     });
+    await retainPackageArchive(file.buffer, {
+      digest: result.digest,
+      type: "css-provider",
+      id: result.manifest.id,
+      version: result.manifest.version,
+      source: "upload",
+    });
 
     const siteId = await getCssProvidersSiteId();
     if (!siteId) {
@@ -149,7 +157,7 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
     await revalidateOnUpdate("cssProviders");
     res.json({ ok: true });
   } catch (err) {
-    res.status(400).json({ error: String(err) });
+    sendInputOrServerError(res, "css-providers", err);
   }
 });
 

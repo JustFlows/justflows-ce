@@ -139,6 +139,7 @@ export const CORE_INSPECTOR_SUPPORTS: Record<string, BlockInspectorSupports> = {
   "core.content-query": BOX,
   "core.search": BOX,
   "core.account": BOX,
+  "core.account-data": BOX,
   "core.auth-form": BOX,
   /** Own Alignment, Size and Corners. Theme-specific variables must be curated for this type. */
   "core.color-scheme": { hideFields: ["textAlign", "radius", "minHeight", "maxHeight", "accent"] },

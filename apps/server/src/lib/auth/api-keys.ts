@@ -514,8 +514,20 @@ export async function pluginCapabilityIds(): Promise<Set<string>> {
  * capabilities could not be ticked on it when it was created. Core
  * capabilities are never widened this way.
  */
+/**
+ * Keys made before the design capabilities existed (justflows-ce#314) used
+ * `content:read` to read site design and `settings:manage` to change it. Such
+ * a key keeps that access; the owner must still hold the design capability.
+ */
+const LEGACY_KEY_CAPABILITY: Readonly<Record<string, UserCapability>> = {
+  "design:read": "content:read",
+  "design:manage": "settings:manage",
+};
+
 export function keyHolds(key: Pick<ApiKeyRecord, "capabilities">, capability: string, pluginCapabilities: ReadonlySet<string>): boolean {
   if (key.capabilities.includes(capability as UserCapability)) return true;
+  const legacy = LEGACY_KEY_CAPABILITY[capability];
+  if (legacy && key.capabilities.includes(legacy)) return true;
   return key.capabilities.includes("site:admin" as UserCapability) && pluginCapabilities.has(capability);
 }
 

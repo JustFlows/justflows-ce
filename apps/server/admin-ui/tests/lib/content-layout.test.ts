@@ -17,5 +17,9 @@ describe("content layout helpers", () => {
   it("seeds a type pattern only on the original locale", () => {
     expect(shouldSeedTypePattern({ id: "en", translationGroupId: "en" })).toBe(true);
     expect(shouldSeedTypePattern({ id: "nl", translationGroupId: "en" })).toBe(false);
+    expect(shouldSeedTypePattern({ id: "en", translationGroupId: "en", status: "draft" })).toBe(true);
+    /** A published entry is never seeded: that would read as an edit and autosave would make a draft. */
+    expect(shouldSeedTypePattern({ id: "en", translationGroupId: "en", status: "published" })).toBe(false);
+    expect(shouldSeedTypePattern({ id: "en", translationGroupId: "en", status: "unpublished" })).toBe(false);
   });
 });

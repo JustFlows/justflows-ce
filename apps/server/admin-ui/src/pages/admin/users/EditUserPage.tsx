@@ -1,14 +1,17 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Link, useNavigate } from "../../../admin-router";
+import { Link, Navigate, useNavigate } from "../../../admin-router";
 import { useCapability, useSession } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
+import PersonalDataPanel from "./PersonalDataPanel";
+import { AccountSecuritySections } from "../security/AccountSecurityPage";
 
 interface User {
   id: string;
   email: string;
   username: string;
   displayName: string;
+  birthDate: string;
   role: string;
   createdAt: string;
   roleId: string;
@@ -48,6 +51,7 @@ function fromApi(user: Record<string, any>): User {
     email: user.email,
     username: user.username,
     displayName: user.display_name,
+    birthDate: user.birth_date ?? "",
     role: user.role,
     createdAt: user.created_at,
     roleId: user.roleId ?? user.role,
@@ -78,10 +82,14 @@ export default function EditUserPage() {
   const canManage = useCapability("users:manage");
   const { session } = useSession();
   const isAdministrator = session?.role === "administrator";
+  const canRead = useCapability("users:read");
+  /** The signed-in person's own page also holds their password, sessions, passkeys and two-factor. */
+  const ownAccount = Boolean(session?.id) && session?.id === id;
   const [resettingFactors, setResettingFactors] = useState(false);
 
   const [user, setUser] = useState<User | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [role, setRole] = useState("subscriber");
   const [additionalRoles, setAdditionalRoles] = useState<string[]>([]);
   const [roles, setRoles] = useState<Array<{ id: string; name: string; builtIn: boolean; pluginId?: string | null }>>([]);
@@ -109,6 +117,7 @@ export default function EditUserPage() {
         const loaded = fromApi(data.user);
         setUser(loaded);
         setDisplayName(loaded.displayName);
+        setBirthDate(loaded.birthDate);
         setRole(loaded.roleId);
         setAdditionalRoles(loaded.additionalRoles);
         setGrants(loaded.grants);
@@ -173,6 +182,7 @@ export default function EditUserPage() {
         ownOnly !== (baselineScope.ownership === "self");
 
       const body: Record<string, unknown> = { displayName };
+      if (birthDate !== user.birthDate) body.birthDate = birthDate || null;
       if (roleChanged) {
         const selected = roles.find((entry) => entry.id === role);
         const assignsUserRole = !selected || selected.builtIn || Boolean(selected.pluginId);
@@ -286,6 +296,9 @@ export default function EditUserPage() {
   const additionalChoices = (roles.length ? roles : ROLES.map((id) => ({ id, name: id, builtIn: true, pluginId: null })))
     .filter((entry) => (entry.builtIn || entry.pluginId) && entry.id !== "administrator" && entry.id !== role);
 
+  /** Without access to the user list, your own page is Users → Your account. */
+  if (ownAccount && !canRead) return <Navigate to="/admin/users/me" replace />;
+
   if (loading) {
     return (
       <>
@@ -359,6 +372,20 @@ export default function EditUserPage() {
                 />
               </div>
               <div className="jf-field">
+                <label className="jf-field__label" htmlFor="jf-edit-birthdate">{t("users.edit.birthDate")}</label>
+                <input
+                  id="jf-edit-birthdate"
+                  className="jf-input"
+                  type="date"
+                  min="1900-01-01"
+                  max={new Date().toISOString().slice(0, 10)}
+                  disabled={!canManage}
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                />
+                <span className="jf-field__hint">{t("users.edit.birthDateHint")}</span>
+              </div>
+              <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-edit-role">{t("users.edit.role")}</label>
                 <select
                   id="jf-edit-role"
@@ -421,15 +448,19 @@ export default function EditUserPage() {
               </div>
               <div className="jf-meta__row"><dt>{t("users.edit.contentAuthored")}</dt><dd>{user.content.total}</dd></div>
             </dl>
-            {user.recentActivity && (
-              <div className="jf-row">
-                <a className="jf-btn jf-btn--ghost" href={`/api/users/${encodeURIComponent(user.id)}/personal-data`} download>
-                  {t("users.edit.downloadPersonalData")}
-                </a>
-              </div>
-            )}
           </div>
         </div>
+
+        {isAdministrator && (
+          <div className="jf-card">
+            <div className="jf-card__head">
+              <h2 className="jf-card__title">{t("privacy.title")}</h2>
+            </div>
+            <div className="jf-card__body">
+              <PersonalDataPanel subject={{ userId: user.id }} label={user.email} />
+            </div>
+          </div>
+        )}
 
         <div className="jf-card">
           <div className="jf-card__head">
@@ -568,7 +599,9 @@ export default function EditUserPage() {
           </div>
         )}
 
-        {canManage && (
+        {ownAccount && <AccountSecuritySections />}
+
+        {canManage && !ownAccount && (
         <div className="jf-card">
           <div className="jf-card__head">
             <h2 className="jf-card__title">{t("users.edit.password")}</h2>

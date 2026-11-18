@@ -39,9 +39,13 @@ export default defineConfig({
               test: /node_modules[\\/](?:framer-motion|motion-dom|motion-utils)[\\/]/,
               priority: 25,
             },
+            /**
+             * `math-katex` stays out: it is loaded on demand, and inside this
+             * group it would make every builder load KaTeX (justflows-ce#318).
+             */
             {
               name: "blocks-core",
-              test: /packages[\\/]blocks[\\/](?:src|dist)[\\/]/,
+              test: /packages[\\/]blocks[\\/](?:src|dist)[\\/](?!math-katex\.)/,
               priority: 24,
             },
             {

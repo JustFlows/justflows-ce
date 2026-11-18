@@ -59,6 +59,10 @@ export default function LoginPage({ adminPath }: { adminPath?: string } = {}) {
   /** False when only a recovery code can stand in for the passkey (a role that requires passkeys). */
   const [totpAccepted, setTotpAccepted] = useState(true);
   const conditional = useRef<ReturnType<typeof conditionalRequest> | null>(null);
+  /** Single sign-on providers offered on the staff sign-in page (justflows-ce#54). */
+  const [providers, setProviders] = useState<Array<{ id: string; name: string }>>([]);
+  /** Set after a provider signed the person in but the account still has to confirm its own second factor. */
+  const [federated, setFederated] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/registration")
@@ -69,7 +73,56 @@ export default function LoginPage({ adminPath }: { adminPath?: string } = {}) {
       .then((r) => r.json())
       .then((data: { enabled?: boolean }) => setCanReset(data.enabled === true))
       .catch(() => {});
+    if (adminPath) {
+      fetch("/api/auth/oidc/providers")
+        .then((r) => r.json())
+        .then((data: { providers?: Array<{ id: string; name: string }> }) => setProviders(Array.isArray(data.providers) ? data.providers : []))
+        .catch(() => {});
+    }
+    const outcome = new URLSearchParams(window.location.search).get("federated");
+    if (outcome === "error") setError(t("auth.login.federatedFailed"));
+    if (outcome === "1") void loadFederatedStep();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** A provider signed the person in; ask which of the account's own factors can finish it. */
+  async function loadFederatedStep() {
+    try {
+      await ensureCsrfCookie();
+      const res = await fetch("/api/auth/oidc/pending", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const data = (await res.json()) as LoginAnswer;
+      if (!res.ok) {
+        setError(data.error ?? t("auth.login.federatedFailed"));
+        return;
+      }
+      setFederated(true);
+      setTotpRequired(true);
+      setTotpAccepted(data.totpAccepted !== false);
+      setPasskeyOptions(data.passkeyOptions ?? null);
+    } catch {
+      setError(t("auth.unexpectedError"));
+    }
+  }
+
+  /** Leave for the provider. The server checks the admin path and sets the flow cookie first. */
+  async function signInWithProvider(id: string) {
+    setLoading(true);
+    setError("");
+    try {
+      await ensureCsrfCookie();
+      const res = await fetch(`/api/auth/oidc/${encodeURIComponent(id)}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(adminPath ? { adminPath } : {}),
+      });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !data.url) throw new Error(data.error ?? t("auth.login.federatedFailed"));
+      window.location.href = data.url;
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : t("auth.login.federatedFailed"));
+      setLoading(false);
+    }
+  }
 
   /**
    * Offer saved passkeys in the email field's autofill. The browser shows them
@@ -190,7 +243,13 @@ export default function LoginPage({ adminPath }: { adminPath?: string } = {}) {
 
     try {
       await ensureCsrfCookie();
-      const res = await fetch("/api/auth/login", {
+      const res = federated
+        ? await fetch("/api/auth/oidc/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(passkey ? { passkey } : { totp }),
+          })
+        : await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -205,6 +264,10 @@ export default function LoginPage({ adminPath }: { adminPath?: string } = {}) {
       const data = (await res.json()) as LoginAnswer;
 
       if (!res.ok) {
+        if (federated) {
+          setError(data.error ?? t("auth.login.loginFailed"));
+          return;
+        }
         if (data.totpRequired) setTotpRequired(true);
         setTotpAccepted(data.totpAccepted !== false);
         setPasskeyOptions(data.passkeyRequired && data.passkeyOptions ? data.passkeyOptions : null);
@@ -231,6 +294,8 @@ export default function LoginPage({ adminPath }: { adminPath?: string } = {}) {
         </div>
 
         <form onSubmit={submit} className="jf-auth__body">
+          {federated ? <p className="jf-field__hint">{t("auth.login.federatedStepUp")}</p> : null}
+          {federated ? null : (
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-email">
               {t("auth.emailLabel")}
@@ -246,6 +311,7 @@ export default function LoginPage({ adminPath }: { adminPath?: string } = {}) {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
+          )}
 
           {passkeyOptions && canUsePasskeys ? (
             <div className="jf-field">
@@ -276,6 +342,7 @@ export default function LoginPage({ adminPath }: { adminPath?: string } = {}) {
             </div>
           ) : null}
 
+          {federated ? null : (
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-password">
               {t("auth.passwordLabel")}
@@ -290,6 +357,7 @@ export default function LoginPage({ adminPath }: { adminPath?: string } = {}) {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+          )}
 
           {error && (
             <div className="jf-alert jf-alert--error" role="alert">
@@ -316,6 +384,26 @@ export default function LoginPage({ adminPath }: { adminPath?: string } = {}) {
                 {t("auth.login.passkeySignIn")}
               </button>
               <small id="jf-passkey-hint" className="jf-auth__hint">{t("auth.login.passkeyHint")}</small>
+            </>
+          ) : null}
+          {providers.length > 0 && !totpRequired ? (
+            <>
+              {canUsePasskeys ? null : (
+                <div className="jf-auth__or" role="separator">
+                  <span>{t("auth.login.or")}</span>
+                </div>
+              )}
+              {providers.map((provider) => (
+                <button
+                  key={provider.id}
+                  className="jf-btn jf-btn--ghost jf-btn--block"
+                  type="button"
+                  onClick={() => void signInWithProvider(provider.id)}
+                  disabled={loading}
+                >
+                  {t("auth.login.continueWith", { name: provider.name })}
+                </button>
+              ))}
             </>
           ) : null}
           {canReset && (

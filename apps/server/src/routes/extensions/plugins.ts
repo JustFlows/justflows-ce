@@ -1,4 +1,7 @@
 import { Router } from "express";
+import fs from "node:fs";
+import path from "node:path";
+import { retainPackageArchive } from "../../lib/backup/package-archives.js";
 import { requireRole, requireSession } from "../../middleware/auth.js";
 import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
 import { param } from "../../lib/http/params.js";
@@ -36,6 +39,22 @@ const packageUploadRequestLimit = rateLimit({
   standardHeaders: "draft-8",
   legacyHeaders: false,
 });
+
+/** Trust reads walk every plugin's baseline; trust changes check a password. */
+const trustRequestLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+});
+
+/**
+ * The admin's extension checker is a tool for plugin authors, so it is off
+ * unless `JF_EXTENSION_CHECKER=on`. `jf check` and the CI action always work.
+ */
+export function extensionCheckerEnabled(): boolean {
+  return process.env.JF_EXTENSION_CHECKER === "on";
+}
 
 function noStore(res: { setHeader: (name: string, value: string) => void }): void {
   res.setHeader("Cache-Control", "private, no-store");
@@ -97,16 +116,27 @@ async function readPluginSettings(
   return { schema: resolveSettingsSchema(schema, defaultLocale), values: merged, languages };
 }
 
+/**
+ * Only the main site installs plugins and decides their version, so another
+ * site's admin is not told which version runs.
+ */
+function withoutVersionOffRoot<T extends { version?: string }>(plugin: T): T | Omit<T, "version"> {
+  if (isInstallationRootRequest()) return plugin;
+  const { version: _version, ...rest } = plugin;
+  return rest;
+}
+
 // The installed extension set and its versions fingerprint the site.
 router.get("/", requireRole("administrator", "editor"), async (req, res) => {
   const session = req.session!;
+  noStore(res);
 
   try {
     const { ensurePluginRuntime } = await import("../../lib/plugins/plugin-runtime.js");
     await ensurePluginRuntime();
     const { listVisiblePlugins } = await import("../../lib/plugins/plugin-multisite.js");
     const plugins = await listVisiblePlugins(session.siteId);
-    res.json({ plugins });
+    res.json({ plugins: plugins.map(withoutVersionOffRoot), extensionChecker: extensionCheckerEnabled() });
   } catch (err) {
     sendServerError(res, "plugins", err);
   }
@@ -185,6 +215,13 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
       version: result.manifest.version,
       archiveDigest: result.digest,
     });
+    await retainPackageArchive(file.buffer, {
+      digest: result.digest,
+      type: "plugin",
+      id: result.manifest.id,
+      version: result.manifest.version,
+      source: "upload",
+    });
     if (!siteId) {
       res.status(503).json({ error: "No site found — complete install first" });
       return;
@@ -199,6 +236,12 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
       },
       status: "installed",
     });
+    /** The row now points at this build, so older versions on disk are unused. */
+    const { purgeOtherPluginVersions } = await import("../../lib/plugins/plugin-purge.js");
+    if (purgeOtherPluginVersions(result.installedPath).removed.length > 0) {
+      const { invalidateIntegrityCache } = await import("../../lib/security/extension-integrity.js");
+      invalidateIntegrityCache();
+    }
 
     auditFromRequest(req, "plugin.installed", {
       target: result.manifest.id,
@@ -222,6 +265,66 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
     res.json({ plugin });
   } catch (err) {
     sendPackageInstallError(res, err);
+  }
+});
+
+/**
+ * Trust this installation's exact build of a plugin, or stop trusting it. Only
+ * on a single self-hosted site, from the main site, with the current password.
+ * It binds the installed archive digest, so an update is not trusted.
+ */
+router.post("/:id/trust", trustRequestLimit, requireRole("administrator"), async (req, res) => {
+  try {
+    if (!isInstallationRootRequest()) {
+      res.status(403).json({ error: "This is managed on the main site." });
+      return;
+    }
+    const trust = await import("../../lib/extensions/plugin-trust.js");
+    if (!(await trust.operatorTrustAllowed())) {
+      res.status(403).json({ error: "Trusting your own build is not available on a multisite network." });
+      return;
+    }
+    const session = req.session!;
+    const body = (req.body ?? {}) as { trusted?: unknown; password?: unknown; archiveDigest?: unknown };
+    const { consumeRateLimit } = await import("../../lib/security/rate-limit.js");
+    if (!consumeRateLimit(`plugin-trust:${session.userId}`, 10, 15 * 60 * 1000)) {
+      res.status(429).json({ error: "Too many attempts. Try again later." });
+      return;
+    }
+    const { getDb } = await import("../../lib/database/db.js");
+    const users = await (await getDb()).query<{ password_hash: string }>("SELECT password_hash FROM users WHERE id = ? LIMIT 1", [session.userId]);
+    const { verifyPassword } = await import("../../lib/auth/password.js");
+    if (typeof body.password !== "string" || !users[0] || !(await verifyPassword(body.password, users[0].password_hash))) {
+      await new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 200));
+      res.status(403).json({ error: "Password is incorrect" });
+      return;
+    }
+    const pluginId = param(req.params.id);
+    const row = (await trust.listPluginTrust(session.siteId)).find((item) => item.pluginId === pluginId);
+    if (!row) {
+      res.status(404).json({ error: "Plugin not found" });
+      return;
+    }
+    /** The digest the admin saw must still be the installed one. */
+    if (!row.archiveDigest || body.archiveDigest !== row.archiveDigest) {
+      res.status(409).json({ error: "This plugin has no recorded package, or it changed. Reload and try again." });
+      return;
+    }
+    const trusted = body.trusted === true;
+    await trust.setOperatorTrust({ pluginId, archiveDigest: row.archiveDigest, trusted, actor: session.email ?? session.userId });
+    auditFromRequest(req, trusted ? "extension.operator_trusted" : "extension.operator_untrusted", {
+      target: pluginId,
+      detail: `${row.version} sha256:${row.archiveDigest}`,
+    });
+    const after = (await trust.listPluginTrust(session.siteId)).find((item) => item.pluginId === pluginId);
+    res.json({ ok: true, plugin: after });
+  } catch (err) {
+    const { OperatorTrustRefusedError } = await import("../../lib/extensions/plugin-trust.js");
+    if (err instanceof OperatorTrustRefusedError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    sendServerError(res, "plugins", err);
   }
 });
 
@@ -284,6 +387,7 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
   const { runtimeDeactivatePlugin, runtimeDeletePluginData, runtimeUnloadPlugin, getRuntimeHooks } =
     await import("../../lib/plugins/plugin-runtime.js");
   const {
+    purgeOtherPluginVersions,
     purgePluginFiles,
     purgePluginStorage,
     purgePluginContent,
@@ -335,7 +439,14 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
   if (!others) await runtimeDeactivatePlugin(session.siteId, pluginId);
   const ownsPackage = isInstallationRootRequest() && !others;
   if (ownsPackage) await runtimeUnloadPlugin(pluginId).catch(() => null);
+  /** Older versions left by earlier installs go too, so nothing of the plugin stays on disk. */
+  const installedPath = typeof row?.manifest.installedPath === "string" ? row.manifest.installedPath : "";
+  if (ownsPackage && installedPath) purgeOtherPluginVersions(installedPath);
   const filesPurged = ownsPackage ? purgePluginFiles(row?.manifest) : { ok: true as const };
+  if (ownsPackage) {
+    const { invalidateIntegrityCache } = await import("../../lib/security/extension-integrity.js");
+    invalidateIntegrityCache();
+  }
   await deletePlugin(session.siteId, pluginId);
   auditFromRequest(req, "plugin.deleted", { target: pluginId });
   await getRuntimeHooks()
@@ -353,6 +464,37 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
       ? {}
       : { warning: `Plugin removed, but its files could not be deleted: ${filesPurged.error}` }),
   });
+});
+
+/**
+ * Each plugin's trust state (justflows-ce#270): verified by Justflows, trusted
+ * by this operator, legacy, or unverified. Reading it records state changes in
+ * the audit log.
+ */
+router.get("/trust", trustRequestLimit, requireRole("administrator"), async (req, res) => {
+  try {
+    noStore(res);
+    const siteId = req.session!.siteId;
+    const trust = await import("../../lib/extensions/plugin-trust.js");
+    const [plugins, policy, attestations, operatorTrustAllowed] = await Promise.all([
+      trust.listPluginTrust(siteId),
+      trust.getPluginTrustPolicy(),
+      trust.loadAttestationFeed(),
+      trust.operatorTrustAllowed(),
+    ]);
+    await trust.recordTrustTransitions(siteId, plugins).catch(() => []);
+    res.json({
+      plugins,
+      legacyUntil: trust.legacyDeadline(policy),
+      attestations: attestations.state === "unavailable" ? { state: "unavailable" } : { state: attestations.state, issuedAt: attestations.feed.issuedAt, expiresAt: attestations.feed.expiresAt },
+      operatorTrustAllowed: operatorTrustAllowed && isInstallationRootRequest(),
+      /** Hidden until Justflows publishes an attestation list, unless the sandbox uses the states. */
+      live: attestations.state !== "unavailable" || trust.pluginSandboxMode() === "on",
+      sandbox: { mode: trust.pluginSandboxMode(), supported: (await import("../../lib/plugins/sandbox/sandbox-host.js")).sandboxSupported() },
+    });
+  } catch (err) {
+    sendServerError(res, "plugins", err);
+  }
 });
 
 // Registered ahead of "/:id" so the literal path is not swallowed by the param.
@@ -391,7 +533,51 @@ router.get("/:id", requireRole("administrator", "editor"), async (req, res) => {
     res.status(404).json({ error: "Plugin not found" });
     return;
   }
-  res.json({ plugin: pluginToDto(plugin) });
+  res.json({ plugin: withoutVersionOffRoot(pluginToDto(plugin)) });
+});
+
+/** Running the extension checker reads every file of a package. */
+const packageCheckLimit = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false });
+
+/**
+ * Run the extension checker on an installed plugin's files, the same rules as
+ * `justflows check` (justflows-ce#97). Read-only, and only for folders inside
+ * the installation's package directories.
+ */
+router.get("/:id/check", packageCheckLimit, requireRole("administrator"), async (req, res) => {
+  if (!extensionCheckerEnabled()) {
+    res.status(404).json({ error: "The extension checker is turned off. Set JF_EXTENSION_CHECKER=on to use it here, or run jf check." });
+    return;
+  }
+  if (!isInstallationRootRequest()) {
+    res.status(403).json({ error: "Plugins are checked on the main site." });
+    return;
+  }
+  const plugin = await getPlugin(req.session!.siteId, param(req.params.id));
+  if (!plugin) {
+    res.status(404).json({ error: "Plugin not found" });
+    return;
+  }
+  const installed = typeof plugin.manifest.installedPath === "string" ? plugin.manifest.installedPath : "";
+  const bundled = typeof plugin.manifest.bundledPath === "string" ? plugin.manifest.bundledPath : "";
+  const { pluginsDir } = await import("../../lib/plugins/plugins-db.js");
+  const within = (dir: string, base: string) => {
+    const relative = path.relative(path.resolve(base), path.resolve(dir));
+    return Boolean(relative) && !relative.startsWith("..") && !path.isAbsolute(relative);
+  };
+  const dir = installed && within(installed, packagesInstalledDir()) ? installed : bundled && within(bundled, pluginsDir()) ? bundled : "";
+  if (!dir || !fs.existsSync(dir)) {
+    res.status(404).json({ error: "The plugin's files are not on this server" });
+    return;
+  }
+  try {
+    const { checkPackage } = await import("@justflows/check");
+    const report = await checkPackage(dir, { coreVersion: getJustflowsVersion(), asPackage: dir === installed });
+    noStore(res);
+    res.json({ report: { ...report, target: { ...report.target, path: plugin.plugin_id } } });
+  } catch (err) {
+    sendServerError(res, "plugins", err);
+  }
 });
 
 router.get("/:id/settings", requireRole("administrator"), async (req, res) => {

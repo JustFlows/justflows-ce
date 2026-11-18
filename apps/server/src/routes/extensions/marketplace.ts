@@ -12,6 +12,7 @@ import {
   FETCH_TIMEOUT_MS,
   installMarketplacePackage,
   JUSTFLOWS_API_BASE,
+  marketplaceRequestHeaders,
   MarketplaceRequestError,
 } from "../../lib/extensions/marketplace-package.js";
 import {
@@ -44,7 +45,10 @@ router.get("/", requireRole("administrator"), async (req, res) => {
     }
     const qs = params.toString();
     const url = `${JUSTFLOWS_API_BASE}/v1/marketplace${qs ? `?${qs}` : ""}`;
-    const upstream = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    const upstream = await fetch(url, {
+      headers: marketplaceRequestHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
     const body = await upstream.text();
     // Always JSON. Echoing the upstream Content-Type would let a compromised or
     // misconfigured registry serve text/html from this site's origin.
@@ -100,6 +104,12 @@ router.post("/install", requireRole("administrator"), async (req, res) => {
         manifest: { ...result.manifest, installedPath: result.installedPath },
         status: "installed",
       });
+      /** The row now points at this build, so versions left by earlier installs are unused. */
+      const { purgeOtherPluginVersions } = await import("../../lib/plugins/plugin-purge.js");
+      if (purgeOtherPluginVersions(result.installedPath).removed.length > 0) {
+        const { invalidateIntegrityCache } = await import("../../lib/security/extension-integrity.js");
+        invalidateIntegrityCache();
+      }
       if (result.approvedPermissions.length > 0) {
         auditFromRequest(req, "plugin.permissions_approved", {
           target: result.manifest.id,

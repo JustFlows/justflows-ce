@@ -1,0 +1,53 @@
+name: Justflows extension check
+description: >-
+  Check a Justflows plugin, theme, or CSS provider for manifest, permission,
+  compatibility, security, packaging, and accessibility problems. Fails the job
+  on blocking findings and writes a JSON report.
+inputs:
+  path:
+    description: Package folder or .jfpkg file, relative to the repository root.
+    required: false
+    default: "."
+  fail-on:
+    description: Lowest severity that fails the job (error, warning, or info).
+    required: false
+    default: error
+  baseline:
+    description: Baseline file of accepted findings (default .justflows-check.json in the folder).
+    required: false
+    default: ""
+  report:
+    description: Where to write the JSON report, relative to the repository root.
+    required: false
+    default: justflows-check.json
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v6
+      with:
+        package_json_file: ${{ github.action_path }}/../../../package.json
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 26
+    - name: Build the checker
+      shell: bash
+      working-directory: ${{ github.action_path }}/../../..
+      run: |
+        pnpm install --frozen-lockfile --filter "@justflows/cli..."
+        pnpm --filter "@justflows/cli..." build
+    - name: Run justflows check
+      shell: bash
+      env:
+        CHECK_PATH: ${{ inputs.path }}
+        CHECK_FAIL_ON: ${{ inputs.fail-on }}
+        CHECK_BASELINE: ${{ inputs.baseline }}
+        CHECK_REPORT: ${{ inputs.report }}
+        CHECK_CLI: ${{ github.action_path }}/../../../packages/cli/dist/cli.js
+      run: |
+        args=("$GITHUB_WORKSPACE/$CHECK_PATH" --fail-on "$CHECK_FAIL_ON")
+        if [ -n "$CHECK_BASELINE" ]; then args+=(--baseline "$GITHUB_WORKSPACE/$CHECK_BASELINE"); fi
+        set +e
+        node "$CHECK_CLI" check "${args[@]}" --json > "$GITHUB_WORKSPACE/$CHECK_REPORT"
+        node "$CHECK_CLI" check "${args[@]}"
+        status=$?
+        exit $status

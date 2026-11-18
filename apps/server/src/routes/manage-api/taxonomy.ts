@@ -66,7 +66,7 @@ function auditSettings(req: Request, detail: string): void {
 /* ------------------------------- menus ---------------------------------- */
 
 router.get("/menus", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     sendJson(req, res, paginate(await listMenus(req.apiKeyOwner!.siteId), req));
   } catch (err) {
@@ -75,7 +75,7 @@ router.get("/menus", async (req, res) => {
 });
 
 router.get("/menus/:slug", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     const menu = await getMenuBySlug(req.apiKeyOwner!.siteId, req.params.slug);
     if (!menu) return notFound(res, "Menu not found");
@@ -97,7 +97,7 @@ const MenuCreateSchema = z.object({
 });
 
 router.post("/menus", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = MenuCreateSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid menu");
   try {
@@ -110,7 +110,7 @@ router.post("/menus", async (req, res) => {
 });
 
 router.put("/menus/:slug", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     const menu = await updateMenu(req.apiKeyOwner!.siteId, req.params.slug, req.body ?? {});
     if (!menu) return notFound(res, "Menu not found");
@@ -125,7 +125,7 @@ router.put("/menus/:slug", async (req, res) => {
 });
 
 router.delete("/menus/:slug", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     const removed = await deleteMenu(req.apiKeyOwner!.siteId, req.params.slug, req.apiKeyOwner!.userId);
     if (!removed) return notFound(res, "Menu not found");

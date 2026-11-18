@@ -14,6 +14,9 @@ vi.mock("../../../src/lib/database/db.js", () => ({
 // keeps adding its items on every site.
 vi.mock("../../../src/lib/plugins/plugin-runtime.js", () => ({
   ensurePluginRuntime: async () => {},
+  getPluginLoader: () => ({
+    capabilityRegistry: { all: () => [{ id: "products:read", pluginId: "justflows.store" }] },
+  }),
   getRuntimeHooks: () => ({
     applyFilter: async (_name: string, items: unknown[]) => [
       ...items,
@@ -66,11 +69,13 @@ describe("listPluginAdminMenu", () => {
         manifest: { adminMenu: [], permissions: ["admin:extend"] },
       },
     ];
-    const paths = (await listPluginAdminMenu("site-sub")).map((item) => item.path);
-    expect(paths).toEqual([
+    const menu = await listPluginAdminMenu("site-sub");
+    expect(menu.map((item) => item.path)).toEqual([
       "/admin/plugins/justflows.store/products",
       "/admin/plugins/justflows.store/products/import",
       "/admin/plugins/justflows.store/tax",
     ]);
+    /** Each entry carries the capabilities its plugin declares. */
+    expect(menu.every((item) => item.capabilities?.includes("products:read"))).toBe(true);
   });
 });

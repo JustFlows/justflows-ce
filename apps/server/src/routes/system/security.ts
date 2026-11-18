@@ -320,4 +320,53 @@ router.post("/audit", adminOnly, (req, res) => {
   }
 });
 
+/**
+ * Sign-in settings (justflows-ce#54): the administrator MFA policy and the
+ * OpenID Connect providers. Client secrets are write-only.
+ */
+router.get("/sign-in", adminOnly, passkeyPolicyRateLimit, async (req, res) => {
+  try {
+    const siteId = await getSiteId();
+    if (!siteId) { res.status(404).json({ error: "Site is not installed." }); return; }
+    const { getMfaPolicy } = await import("../../lib/auth/mfa-policy.js");
+    const { getOidcProviders, providerView } = await import("../../lib/auth/oidc.js");
+    const { listAssignableRoles } = await import("../../lib/auth/assignable-roles.js");
+    const { publicOrigin } = await import("../../lib/ai/ai-settings.js");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.json({
+      mfa: await getMfaPolicy(siteId),
+      providers: (await getOidcProviders(siteId)).map(providerView),
+      roles: (await listAssignableRoles()).map((role) => ({ id: role.id, name: role.label })),
+      callbackBase: `${publicOrigin(req)}/api/auth/oidc/`,
+    });
+  } catch (err) {
+    sendServerError(res, "security", err);
+  }
+});
+
+router.put("/sign-in", adminOnly, passkeyPolicyRateLimit, async (req, res) => {
+  try {
+    const siteId = await getSiteId();
+    if (!siteId) { res.status(404).json({ error: "Site is not installed." }); return; }
+    const body = (req.body ?? {}) as { mfa?: unknown; providers?: unknown };
+    const { getMfaPolicy, saveMfaPolicy } = await import("../../lib/auth/mfa-policy.js");
+    const { getOidcProviders, providerView, saveOidcProviders } = await import("../../lib/auth/oidc.js");
+    if (body.mfa !== undefined) {
+      const before = await getMfaPolicy(siteId);
+      const after = await saveMfaPolicy(siteId, body.mfa);
+      if (JSON.stringify(before) !== JSON.stringify(after)) {
+        auditFromRequest(req, "security.mfa_policy_changed", { detail: `required for: ${after.requiredRoles.join(", ") || "nobody"}` });
+      }
+    }
+    if (body.providers !== undefined) {
+      const before = (await getOidcProviders(siteId)).map((provider) => provider.id).join(", ");
+      const after = await saveOidcProviders(siteId, body.providers);
+      auditFromRequest(req, "security.oidc_providers_changed", { detail: `before: ${before || "none"}; after: ${after.map((provider) => `${provider.id}${provider.enabled ? "" : " (off)"}`).join(", ") || "none"}` });
+    }
+    res.json({ mfa: await getMfaPolicy(siteId), providers: (await getOidcProviders(siteId)).map(providerView) });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Invalid sign-in settings" });
+  }
+});
+
 export default router;

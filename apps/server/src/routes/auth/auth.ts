@@ -27,6 +27,7 @@ import { clearUserResets, hashResetToken } from "../../lib/auth/password-reset-d
 import { finishSignIn } from "../../lib/auth/sign-in.js";
 import { PasskeyAnswerSchema, requestOptions, usablePasskeys, verifyPasskeyForAccount } from "../../lib/auth/webauthn/ceremonies.js";
 import passkeyRoutes from "./passkeys.js";
+import oidcRoutes, { identityRoutes } from "./oidc.js";
 
 const router = Router();
 const loginRequestLimit = rateLimit({
@@ -113,8 +114,11 @@ router.get("/me", requireSession, async (req, res) => {
   } catch {
     passkeyEnrollmentRequired = false;
   }
+  const { enrolmentRequirement } = await import("../../lib/auth/mfa-policy.js");
+  const enrolment = await enrolmentRequirement(session).catch(() => null);
   res.json({
-    passkeyEnrollmentRequired,
+    passkeyEnrollmentRequired: passkeyEnrollmentRequired || enrolment === "passkey",
+    mfaEnrollmentRequired: enrolment === "mfa",
     id: session.userId,
     email: session.email,
     role: session.role,
@@ -145,7 +149,7 @@ const LoginSchema = z.object({
 
 /** Where an account that must enrol a passkey is sent after signing in. */
 async function passkeyEnrolmentPath(staff: boolean, adminPath: string, siteId: string): Promise<string> {
-  if (staff) return `${adminPath}/security/account?enrol=passkey`;
+  if (staff) return `${adminPath}/users/me?enrol=passkey`;
   const { accountHomeUrl } = await import("../../lib/account/pages.js");
   return `${await accountHomeUrl(siteId).catch(() => "/account")}?enrol=passkey`;
 }
@@ -970,6 +974,7 @@ router.post("/2fa/enable", totpEnableRequestLimit, requireSession, async (req, r
 
     // Shown once. Storing them anywhere the user can re-read would make them a
     // second copy of the secret rather than a break-glass measure.
+    (await import("../../lib/auth/mfa-policy.js")).forgetSecondFactors(session.userId);
     res.json({ ok: true, recoveryCodes });
   } catch (err) {
     console.error("2FA enable error", err);
@@ -1011,6 +1016,13 @@ router.post("/2fa/disable", totpDisableRequestLimit, requireSession, async (req,
       res.status(401).json({ error: "Password is incorrect" });
       return;
     }
+    /** The MFA policy must not be weakened by turning off the last factor. */
+    const mfa = await import("../../lib/auth/mfa-policy.js");
+    if ((await mfa.getMfaPolicy(session.siteId)).requiredRoles.includes(session.role) && (await mfa.secondFactorsOf(session.userId)).passkeys === 0) {
+      res.status(409).json({ error: "Your role must use two-factor authentication. Add a passkey before turning off the authenticator app." });
+      return;
+    }
+    mfa.forgetSecondFactors(session.userId);
 
     const { TotpUnavailableError, claimTotpStep, consumeRecoveryCode, disableTotp, getTotpState } = await import("../../lib/auth/totp-db.js");
     let state;
@@ -1064,6 +1076,8 @@ router.post("/2fa/disable", totpDisableRequestLimit, requireSession, async (req,
 });
 
 router.use(passkeyRoutes);
+router.use("/oidc", oidcRoutes);
+router.use("/identities", identityRoutes);
 
 router.get("/sessions", requireSession, async (req, res) => {
   const session = req.session!;
