@@ -200,14 +200,14 @@ export default function AdminShell() {
           </span>
         </div>
 
-        {session?.passkeyEnrollmentRequired && !pathname.endsWith("/security/account") ? (
+        {session?.passkeyEnrollmentRequired && !pathname.endsWith("/users/me") ? (
           <div className="jf-banner jf-banner--warn" role="status">
             <span className="jf-banner__icon" aria-hidden="true">!</span>
             <div>
               <div className="jf-banner__title">{t("security.account.passkeys.requiredTitle")}</div>
               <div className="jf-banner__sub">
                 {t("security.account.passkeys.required")}{" "}
-                <Link to="/admin/security/account?enrol=passkey">{t("security.account.passkeys.add")}</Link>
+                <Link to="/admin/users/me?enrol=passkey">{t("security.account.passkeys.add")}</Link>
               </div>
             </div>
           </div>

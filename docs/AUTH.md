@@ -161,7 +161,7 @@ path is never written into the page.
 
 ## Passkeys
 
-Staff add passkeys under **Security → Your account**, and members add them on the
+Staff add passkeys under **Users → Your account**, and members add them on the
 account page. A passkey can be a synced passkey (iCloud Keychain, Google Password
 Manager, a password manager), a device-bound one (Windows Hello, Touch ID), or a
 hardware security key. Adding or removing a passkey asks for the current

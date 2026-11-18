@@ -10,7 +10,7 @@ import {
 const HREFS = new Set([
   null,
   "/admin/updates",
-  "/admin/security/account",
+  "/admin/users/me",
   "/admin/settings/api",
   "/admin/security/headers",
   "/admin/security/integrity",

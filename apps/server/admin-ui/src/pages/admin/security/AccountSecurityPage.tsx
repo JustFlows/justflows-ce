@@ -30,6 +30,25 @@ async function postJson(url: string, body: unknown): Promise<{ ok: boolean; data
  */
 export default function AccountSecurityPage() {
   const { t } = useT();
+  return (
+    <div className="jf-page">
+      <header className="jf-pagehead">
+        <div className="jf-pagehead__text">
+          <h1>{t("security.account.title")}</h1>
+          <p>{t("security.account.subtitle")}</p>
+        </div>
+      </header>
+      <AccountSecuritySections />
+    </div>
+  );
+}
+
+/**
+ * Password, sessions, passkeys and two-factor for the signed-in account. Shown
+ * on Users → Your account and on the person's own user page.
+ */
+export function AccountSecuritySections() {
+  const { t } = useT();
   const [status, setStatus] = useState<TotpStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -49,14 +68,7 @@ export default function AccountSecurityPage() {
   }, [refresh]);
 
   return (
-    <div className="jf-page">
-      <header className="jf-pagehead">
-        <div className="jf-pagehead__text">
-          <h1>{t("security.account.title")}</h1>
-          <p>{t("security.account.subtitle")}</p>
-        </div>
-      </header>
-
+    <>
       <PasswordSection />
 
       <SessionsSection />
@@ -72,7 +84,7 @@ export default function AccountSecurityPage() {
       ) : (
         <TwoFactorSection status={status} onChange={refresh} />
       )}
-    </div>
+    </>
   );
 }
 

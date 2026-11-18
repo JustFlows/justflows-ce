@@ -65,6 +65,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Your account moved to Users.** Your password, active sessions, passkeys and two-factor settings are now under **Users → Your account** (`/admin/users/me`) and on your own user page, instead of under Security. Every admin role can open it. Roles that cannot list users see only that option under Users. The old `/admin/security/account` address redirects there, so existing links keep working.
 - **Multisite is off unless `JF_MULTISITE=true`.** Set it in `.env` and restart to use workspaces, extra sites, public signup and platform domains. Unset, `false` or any other value turns all of it off without deleting data. Only the root site (the first one created) is served, and other sites' hostnames answer "Site not found" until multisite is back on. `/api/platform/*`, `/api/signup`, `/api/account/workspaces` and the management API's `/tenants` and `/sites/:id/quotas` answer 404. Nobody is a platform operator, so the admin hides the Platform screens, and the account page lists no workspaces. `ctx.tenancy` refuses plugin calls, and the deleted-site purge job does not run. The server logs a warning at boot when other sites exist while multisite is off. **Installations that serve more than one site must add `JF_MULTISITE=true` before upgrading.** See [docs/MULTISITE.md](docs/MULTISITE.md).
 
 ### Fixed

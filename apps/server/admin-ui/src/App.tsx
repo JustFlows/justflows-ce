@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import NoticeFocus from "./components/NoticeFocus";
-import { Outlet, Route, Routes } from "react-router-dom";
+import { Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Navigate } from "./admin-router";
 import AdminShell from "@components/AdminShell";
 import { I18nProvider } from "./i18n/I18nProvider";
@@ -83,6 +83,12 @@ const PasskeyPolicyPage = lazyPage(() => import("./pages/admin/security/PasskeyP
  * Guards the couple of full-bleed editors that render outside AdminShell (and
  * so miss its own role gate). Same rule table, same "bounce, don't 403".
  */
+/** Security → Your account moved to Users → Your account; old links keep working. */
+function AccountMoved() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: "/admin/users/me", search }} replace />;
+}
+
 function RequireNavAccess({ path, children }: { path: string; children: React.ReactNode }) {
   const { session } = useSession();
   const role = session?.role ?? null;
@@ -146,6 +152,7 @@ export default function App() {
               <Route path="menus" element={<MenusPage />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="data-requests" element={<DataRequestsPage />} />
+              <Route path="users/me" element={<AccountSecurityPage />} />
               <Route path="users/:id" element={<EditUserPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="settings/permalinks" element={<PermalinksPage />} />
@@ -182,7 +189,7 @@ export default function App() {
               <Route path="security/advanced" element={<SecurityAdvancedPage />} />
               <Route path="security/admin-path" element={<AdminPathPage />} />
               <Route path="security/passkeys" element={<PasskeyPolicyPage />} />
-              <Route path="security/account" element={<AccountSecurityPage />} />
+              <Route path="security/account" element={<AccountMoved />} />
               <Route path="security/audit" element={<AuditLogPage />} />
               <Route path="security/audit/settings" element={<AuditSettingsPage />} />
               <Route path="*" element={<PluginHostPage />} />

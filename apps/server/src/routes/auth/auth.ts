@@ -145,7 +145,7 @@ const LoginSchema = z.object({
 
 /** Where an account that must enrol a passkey is sent after signing in. */
 async function passkeyEnrolmentPath(staff: boolean, adminPath: string, siteId: string): Promise<string> {
-  if (staff) return `${adminPath}/security/account?enrol=passkey`;
+  if (staff) return `${adminPath}/users/me?enrol=passkey`;
   const { accountHomeUrl } = await import("../../lib/account/pages.js");
   return `${await accountHomeUrl(siteId).catch(() => "/account")}?enrol=passkey`;
 }
