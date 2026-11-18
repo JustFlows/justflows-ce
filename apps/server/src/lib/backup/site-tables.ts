@@ -63,6 +63,7 @@ export const SITE_TABLES = [
   "oauth_clients",
   "oauth_grants",
   "webauthn_credentials",
+  "user_identities",
   "audit_log",
   "data_requests",
 ] as const;
