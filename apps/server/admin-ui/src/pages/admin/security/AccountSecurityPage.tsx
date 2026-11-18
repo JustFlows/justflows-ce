@@ -63,6 +63,8 @@ export default function AccountSecurityPage() {
 
       <PasskeysSection />
 
+      <LinkedIdentitiesSection />
+
       {loadError ? (
         <Section title={t("security.account.twoFactor.title")}>
           <p className="jf-status jf-status--error">
@@ -818,6 +820,69 @@ function PasskeysSection() {
 
       <h3>{t("security.account.passkeys.lostTitle")}</h3>
       <p className="jf-field__hint">{t("security.account.passkeys.lostBody")}</p>
+    </Section>
+  );
+}
+
+type LinkedIdentity = { id: string; providerId: string; email: string | null; createdAt: string; lastUsedAt: string | null };
+
+/**
+ * Single sign-on identities linked to this account (justflows-ce#54). Linked
+ * the first time the account signs in through a provider; unlinking only
+ * stops that provider signing in to this account.
+ */
+function LinkedIdentitiesSection() {
+  const { t } = useT();
+  const [identities, setIdentities] = useState<LinkedIdentity[] | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await fetch("/api/auth/identities");
+    const data = await res.json().catch(() => ({}));
+    setIdentities(res.ok && Array.isArray(data.identities) ? data.identities : []);
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (!identities || identities.length === 0) return null;
+
+  async function unlink(id: string) {
+    setBusy(true);
+    setNotice(null);
+    const res = await fetch(`/api/auth/identities/${encodeURIComponent(id)}`, { method: "DELETE" });
+    setBusy(false);
+    if (!res.ok) {
+      setNotice({ kind: "error", text: t("security.account.identities.unlinkError") });
+      return;
+    }
+    setNotice({ kind: "ok", text: t("security.account.identities.unlinked") });
+    await load();
+  }
+
+  return (
+    <Section title={t("security.account.identities.title")}>
+      <p className="jf-field__hint">{t("security.account.identities.intro")}</p>
+      <div className="jf-stack">
+        {identities.map((identity) => (
+          <div className="jf-row" key={identity.id}>
+            <div style={{ flex: 1 }}>
+              <strong>{identity.providerId}</strong>
+              {identity.email ? <> <span>{identity.email}</span></> : null}
+              <div className="jf-field__hint">
+                {t("security.account.identities.linked", { date: new Date(identity.createdAt).toLocaleString() })}
+                {identity.lastUsedAt ? <>{" · "}{t("security.account.identities.lastUsed", { date: new Date(identity.lastUsedAt).toLocaleString() })}</> : null}
+              </div>
+            </div>
+            <button className="jf-btn jf-btn--ghost" type="button" disabled={busy} onClick={() => void unlink(identity.id)}>
+              {t("security.account.identities.unlink")}
+            </button>
+          </div>
+        ))}
+      </div>
+      {notice ? <p className={`jf-status jf-status--${notice.kind === "ok" ? "saved" : "error"}`}>{notice.text}</p> : null}
     </Section>
   );
 }

@@ -24,7 +24,7 @@ export async function finishSignIn(
   req: Request,
   res: Response,
   account: SignInAccount,
-  method: "password" | "passkey",
+  method: "password" | "passkey" | `oidc:${string}`,
 ): Promise<boolean> {
   const sid = await createDeviceSession({
     userId: account.id,
@@ -48,7 +48,7 @@ export async function finishSignIn(
     actorEmail: account.email,
     actorRole: account.role,
     ...auditContext(req),
-    ...(method === "passkey" ? { detail: "passkey" } : {}),
+    ...(method !== "password" ? { detail: method } : {}),
   });
   return true;
 }

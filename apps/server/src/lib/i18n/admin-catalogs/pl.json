@@ -58,7 +58,8 @@
     "taxonomies": "Kategorie i tagi",
     "securityPasskeys": "Klucze dostępu",
     "dataRequests": "Wnioski o dane",
-    "securityCustomCode": "Własny kod"
+    "securityCustomCode": "Własny kod",
+    "securitySignIn": "Logowanie"
   },
   "webhooks": {
     "title": "Haki internetowe",
@@ -2450,7 +2451,10 @@
       "recoveryLabel": "Kod odzyskiwania",
       "recoveryHint": "Twoja rola loguje się kluczem dostępu. Jeśli go zgubiono, wpisz jeden z kodów odzyskiwania.",
       "or": "lub",
-      "passkeyHint": "Odciskiem palca, twarzą, blokadą ekranu lub kluczem bezpieczeństwa."
+      "passkeyHint": "Odciskiem palca, twarzą, blokadą ekranu lub kluczem bezpieczeństwa.",
+      "continueWith": "Kontynuuj przez {name}",
+      "federatedFailed": "Logowanie jednokrotne nie powiodło się. Spróbuj ponownie lub zaloguj się hasłem.",
+      "federatedStepUp": "Dostawca logowania potwierdził Twoją tożsamość. Dokończ, używając własnego drugiego składnika."
     },
     "register": {
       "checking": "Sprawdzam…",
@@ -4091,6 +4095,20 @@
           "regenerateHint": "Nowe kody zastępują wszystkie niewykorzystane.",
           "error": "Nie udało się utworzyć nowych kodów odzyskiwania."
         }
+      },
+      "mfaRequired": {
+        "title": "Włącz uwierzytelnianie dwuskładnikowe",
+        "body": "Twoja rola musi używać w tej witrynie aplikacji uwierzytelniającej lub klucza dostępu. Dopóki go nie dodasz, reszta panelu jest niedostępna.",
+        "action": "Skonfiguruj teraz"
+      },
+      "identities": {
+        "title": "Logowanie jednokrotne",
+        "intro": "Dostawcy logowania powiązani z Twoim kontem. Odłączenie usuwa powiązanie; przy następnym logowaniu przez tego dostawcę zostanie utworzone ponownie, jeśli Twój zweryfikowany adres nadal się zgadza.",
+        "linked": "powiązano {date}",
+        "lastUsed": "ostatnio użyto {date}",
+        "unlink": "Odłącz",
+        "unlinked": "Odłączono.",
+        "unlinkError": "Nie udało się odłączyć."
       }
     },
     "adminPath": {
@@ -4542,6 +4560,46 @@
         "entry": "Wersja {version} · {date}",
         "hint": "Każda zmiana trafia też do dziennika audytu: co się zmieniło i kto to zrobił."
       }
+    },
+    "signIn": {
+      "title": "Logowanie",
+      "subtitle": "Kto musi używać drugiego składnika i z których dostawców logowania jednokrotnego może korzystać zespół.",
+      "errors": {
+        "loadFailed": "Nie udało się wczytać ustawień logowania.",
+        "saveFailed": "Nie udało się zapisać ustawień logowania."
+      },
+      "mfa": {
+        "title": "Wymagany drugi składnik",
+        "hint": "Osoby z tymi rolami muszą używać aplikacji uwierzytelniającej lub klucza dostępu. Dopóki go nie dodadzą, mogą jedynie go skonfigurować, zmienić hasło lub się wylogować.",
+        "legend": "Wymagaj drugiego składnika dla",
+        "warnTitle": "Najpierw sprawdź własne konto",
+        "warn": "Konta z tymi rolami bez drugiego składnika tracą dostęp do panelu, dopóki go nie dodadzą, a ich ostatniego składnika nie można usunąć, dopóki obowiązuje ta reguła."
+      },
+      "providers": {
+        "title": "Logowanie jednokrotne (OpenID Connect)",
+        "hint": "Zespół może logować się przez Twojego dostawcę tożsamości. Logowane są tylko istniejące konta: po powiązaniu według identyfikatora konta u dostawcy, a za pierwszym razem według zweryfikowanego adresu e-mail. Nikt nie jest tworzony, a logowanie hasłem nadal działa.",
+        "none": "Brak dostawców.",
+        "newProvider": "Nowy dostawca",
+        "enabled": "Pokazuj na stronie logowania zespołu",
+        "name": "Etykieta przycisku",
+        "nameHint": "Wyświetlana jako „Kontynuuj przez …”.",
+        "id": "Identyfikator",
+        "callback": "Adres przekierowania (redirect URI) do zarejestrowania u dostawcy:",
+        "issuer": "Adres URL wystawcy",
+        "issuerHint": "Wystawca (issuer) dostawcy; stąd odczytywana jest jego /.well-known/openid-configuration. Musi używać https.",
+        "clientId": "Identyfikator klienta",
+        "clientSecret": "Sekret klienta",
+        "secretStored": "Zapisany — zostaw puste, aby go zachować",
+        "clientSecretHint": "Przechowywany w postaci zaszyfrowanej. Zostaw puste dla klienta publicznego.",
+        "scopes": "Zakresy (scopes)",
+        "allowedDomains": "Dozwolone domeny e-mail",
+        "allowedDomainsHint": "Jedna w wierszu. Puste pole dopuszcza każdy zweryfikowany adres pasujący do istniejącego konta.",
+        "mfaAmr": "Wartości amr uznawane za MFA",
+        "mfaAcr": "Wartości acr uznawane za MFA",
+        "mfaHint": "Jeśli token ID dostawcy potwierdza jedną z tych wartości, logowanie liczy się jako dwuskładnikowe. W przeciwnym razie osoby, które mają tutaj własny drugi składnik, również zostaną o niego poproszone.",
+        "remove": "Usuń dostawcę",
+        "add": "Dodaj dostawcę"
+      }
     }
   },
   "settings": {
@@ -4956,7 +5014,11 @@
       "dbName": "Nazwa bazy danych",
       "dbUser": "Nazwa użytkownika",
       "networkBlockedNotRoot": "Przywróć kopię sieci z witryny głównej instalacji.",
-      "unavailableExtensions": "Nie są zainstalowane na tym serwerze, więc zostaną przywrócone jako wyłączone: {list}. Zainstaluj je, a potem włącz."
+      "unavailableExtensions": "Nie są zainstalowane na tym serwerze, więc zostaną przywrócone jako wyłączone: {list}. Zainstaluj je, a potem włącz.",
+      "networkSites": "Archiwum sieci: {{count}} witryn",
+      "networkContent": "elementy treści",
+      "networkMedia": "pliki multimedialne",
+      "networkRestoreWarning": "Przywrócenie sieci wymaga czystej instalacji zawierającej tylko witrynę główną. Sprawdź adresy przed przywróceniem."
     },
     "manualRestartBody": "Uruchom ponownie Justflows na serwerze, a następnie odśwież tę stronę.",
     "manualRestartBodyContainer": "Uruchom ponownie kontener Justflows, a następnie odśwież tę stronę.",

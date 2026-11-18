@@ -58,7 +58,8 @@
     "taxonomies": "Categorieën & tags",
     "securityPasskeys": "Passkeys",
     "dataRequests": "Gegevensverzoeken",
-    "securityCustomCode": "Eigen code"
+    "securityCustomCode": "Eigen code",
+    "securitySignIn": "Inloggen"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -2403,7 +2404,10 @@
       "recoveryLabel": "Herstelcode",
       "recoveryHint": "Je rol logt in met een passkey. Ben je die kwijt? Vul dan een van je herstelcodes in.",
       "or": "of",
-      "passkeyHint": "Gebruik je vingerafdruk, gezicht, schermvergrendeling of een beveiligingssleutel."
+      "passkeyHint": "Gebruik je vingerafdruk, gezicht, schermvergrendeling of een beveiligingssleutel.",
+      "continueWith": "Doorgaan met {name}",
+      "federatedFailed": "Single sign-on is niet gelukt. Probeer het opnieuw of log in met je wachtwoord.",
+      "federatedStepUp": "Je inlogprovider heeft bevestigd wie je bent. Rond af met je eigen tweede factor."
     },
     "passwordLabel": "Wachtwoord",
     "signInCta": "Inloggen →",
@@ -3437,6 +3441,20 @@
           "regenerateHint": "Nieuwe codes vervangen alle ongebruikte codes.",
           "error": "Er konden geen nieuwe herstelcodes worden gemaakt."
         }
+      },
+      "mfaRequired": {
+        "title": "Zet tweestapsverificatie aan",
+        "body": "Jouw rol moet op deze site een authenticator-app of een passkey gebruiken. Tot je er een toevoegt, is de rest van het beheer niet beschikbaar.",
+        "action": "Nu instellen"
+      },
+      "identities": {
+        "title": "Single sign-on",
+        "intro": "Inlogproviders die aan je account gekoppeld zijn. Ontkoppelen verwijdert de koppeling; bij de volgende keer inloggen via die provider wordt die opnieuw gemaakt als je geverifieerde adres nog overeenkomt.",
+        "linked": "gekoppeld op {date}",
+        "lastUsed": "laatst gebruikt op {date}",
+        "unlink": "Ontkoppelen",
+        "unlinked": "Ontkoppeld.",
+        "unlinkError": "Ontkoppelen is niet gelukt."
       }
     },
     "adminPath": {
@@ -3881,6 +3899,46 @@
         "empty": "Nog geen wijzigingen opgeslagen.",
         "entry": "Versie {version} · {date}",
         "hint": "Elke wijziging komt ook in het auditlog, met wat er veranderde en wie het deed."
+      }
+    },
+    "signIn": {
+      "title": "Inloggen",
+      "subtitle": "Wie een tweede factor moet gebruiken, en via welke single sign-on-providers medewerkers kunnen inloggen.",
+      "errors": {
+        "loadFailed": "De inloginstellingen konden niet worden geladen.",
+        "saveFailed": "De inloginstellingen konden niet worden opgeslagen."
+      },
+      "mfa": {
+        "title": "Verplichte tweede factor",
+        "hint": "Mensen met deze rollen moeten een authenticator-app of een passkey gebruiken. Tot ze er een toevoegen, kunnen ze alleen er een instellen, hun wachtwoord wijzigen of uitloggen.",
+        "legend": "Tweede factor verplicht voor",
+        "warnTitle": "Controleer eerst je eigen account",
+        "warn": "Accounts met deze rollen zonder tweede factor verliezen de toegang tot het beheer tot ze er een toevoegen, en hun laatste factor kan niet worden verwijderd zolang dit geldt."
+      },
+      "providers": {
+        "title": "Single sign-on (OpenID Connect)",
+        "hint": "Medewerkers kunnen inloggen via je identiteitsprovider. Alleen bestaande accounts worden ingelogd: na koppeling via het account-ID van de provider, de eerste keer via een geverifieerd e-mailadres. Er wordt niemand aangemaakt en inloggen met wachtwoord blijft werken.",
+        "none": "Nog geen providers.",
+        "newProvider": "Nieuwe provider",
+        "enabled": "Tonen op de inlogpagina voor medewerkers",
+        "name": "Knoptekst",
+        "nameHint": "Wordt getoond als ‘Doorgaan met …’.",
+        "id": "ID",
+        "callback": "Redirect-URI om bij de provider te registreren:",
+        "issuer": "Issuer-URL",
+        "issuerHint": "De issuer van de provider; de /.well-known/openid-configuration wordt hier gelezen. Moet https gebruiken.",
+        "clientId": "Client-ID",
+        "clientSecret": "Clientgeheim",
+        "secretStored": "Opgeslagen — laat leeg om te behouden",
+        "clientSecretHint": "Wordt versleuteld opgeslagen. Laat leeg voor een publieke client.",
+        "scopes": "Scopes",
+        "allowedDomains": "Toegestane e-maildomeinen",
+        "allowedDomainsHint": "Eén per regel. Leeg staat elk geverifieerd adres toe dat bij een bestaand account hoort.",
+        "mfaAmr": "amr-waarden die als MFA tellen",
+        "mfaAcr": "acr-waarden die als MFA tellen",
+        "mfaHint": "Bewijst het ID-token van de provider een van deze waarden, dan telt de login als tweestapsverificatie. Anders wordt mensen die hier een eigen tweede factor hebben daar ook om gevraagd.",
+        "remove": "Provider verwijderen",
+        "add": "Provider toevoegen"
       }
     }
   },
@@ -4651,7 +4709,11 @@
       "dbName": "Databasenaam",
       "dbUser": "Gebruikersnaam",
       "networkBlockedNotRoot": "Zet een netwerkback-up terug vanaf de hoofdsite van de installatie.",
-      "unavailableExtensions": "Niet op deze server geïnstalleerd, dus uitgeschakeld teruggezet: {list}. Installeer ze en zet ze daarna aan."
+      "unavailableExtensions": "Niet op deze server geïnstalleerd, dus uitgeschakeld teruggezet: {list}. Installeer ze en zet ze daarna aan.",
+      "networkSites": "Netwerkarchief: {{count}} sites",
+      "networkContent": "inhoudsitems",
+      "networkMedia": "mediabestanden",
+      "networkRestoreWarning": "Netwerkherstel vereist een schone installatie met alleen de hoofdsite. Controleer deze siteadressen vóór herstel."
     },
     "performance": {
       "loadFailed": "Prestatie-instellingen konden niet worden geladen",

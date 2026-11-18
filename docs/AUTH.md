@@ -183,7 +183,7 @@ There are two ways to sign in with one:
 | Setting | Effect |
 | --- | --- |
 | Allow (default) | The role may add passkeys and sign in with them. |
-| Require | The role must add a passkey. An account without one is sent to add it straight after signing in. Once it has one, a password and an authenticator code are no longer enough. A recovery code still works. The last passkey cannot be removed. |
+| Require | The role must add a passkey. An account without one is sent to add it straight after signing in, and until it has one the server refuses every admin API except adding a passkey or authenticator, changing the password, managing sessions, and signing out (`403`, `passkey_enrollment_required`). Once it has one, a password and an authenticator code are no longer enough. A recovery code still works. The last passkey cannot be removed. |
 | Disallow | The role cannot add passkeys, and existing ones are not accepted. |
 | User verification | `Preferred` (default) or `Required`. Passwordless sign-in always requires it. |
 | Attestation | `None` (default) does not ask which device made the passkey. `Direct` verifies `packed` and `fido-u2f` statements and enables an AAGUID allow-list. Certificates are not checked against the FIDO Metadata Service, so the list filters by model but does not prove the model. Synced passkeys carry no attestation, so they cannot pass the list. |
@@ -211,6 +211,58 @@ everywhere.
 The default `Permissions-Policy` allows `publickey-credentials-get` for the site
 itself. A policy saved with the old shipped value, which blocked it, is read as
 the new default. An edited policy that still blocks it stops passkey sign-in.
+
+## Required second factor
+
+**Security → Sign-in** lists the roles that must use a second factor: an
+authenticator app or a passkey. The server enforces it. An account in such a
+role without either can still sign in, but every admin API except `GET
+/api/auth/me` and the ones under `/api/auth/2fa`, `/api/auth/passkeys`,
+`/api/auth/password`, `/api/auth/sessions`, `/api/auth/identities` and
+`/api/auth/logout` answers `403` with the code `mfa_enrollment_required`. The
+admin shows a banner that links to **Security → Your account**. While the
+policy covers the role, the account's last factor cannot be removed: turning off
+the authenticator app needs a passkey, and removing the last passkey needs the
+app. The policy is stored per site (`security.mfa`) and changes are audited as
+`security.mfa_policy_changed`.
+
+## Single sign-on (OpenID Connect)
+
+Staff can sign in through an OpenID Connect identity provider, such as Microsoft
+Entra ID, Google Workspace, Okta, Keycloak or Authentik. Add up to five under
+**Security → Sign-in** with the provider's issuer URL, client ID and client
+secret, and register the redirect URI shown there with the provider
+(`https://<site>/api/auth/oidc/<id>/callback`). Each enabled provider appears as
+a "Continue with …" button on the staff sign-in page only. The issuer must use
+https. The client secret is encrypted with `APP_SECRET`, never shown again, and
+kept when the field is left blank.
+
+The sign-in uses the Authorization Code flow with PKCE (S256), a random state
+and a random nonce, held in a signed cookie for ten minutes. The ID token's
+signature, issuer, audience, expiry and nonce are checked against the provider's
+published keys.
+
+**Only existing accounts are signed in. Nobody is created.** The account is
+found by the provider's stable subject once linked. The first time, it is found
+by the email address in the ID token, which must be marked verified
+(`email_verified`) and, when **Allowed email domains** is set, be in one of
+them. That links the subject to the account (`auth.identity_linked`), so a later
+change of address at the provider does not lose access, and a new person who
+gets an old address is not let in. Linked identities are listed under
+**Security → Your account**, where they can be unlinked. Password sign-in keeps
+working, which is the way back in when the provider is down.
+
+**Second factors.** A provider sign-in counts as two-factor only when the ID
+token proves it: an `amr` value in the provider's list (`mfa`, `otp`, `hwk`,
+`swk`, `sc` by default) or an `acr` value you list. Otherwise, an account that
+has its own authenticator app or passkey here is asked for it after returning
+from the provider, before a session is created. An account without one signs in
+with the provider alone, and the MFA policy above still applies to it.
+
+Every failure goes back to the sign-in page with a general message and is
+audited as `auth.login_failed` with the reason. Changes to providers are audited
+as `security.oidc_providers_changed`. For local testing only, `JF_OIDC_ALLOW_HTTP=1`
+allows a plain-http issuer outside production. SAML is not supported yet.
 
 ## Connecting AI apps
 

@@ -41,6 +41,7 @@
     "multer": "^2.5.0",
     "mysql2": "^3.24.6",
     "nodemailer": "^10.2.1",
+    "openid-client": "^6.9.0",
     "postgres": "^3.4.9",
     "undici": "8.12.3",
     "zod": "^4.6.7"

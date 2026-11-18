@@ -58,7 +58,8 @@
     "taxonomies": "Categories & Tags",
     "securityPasskeys": "Passkeys",
     "dataRequests": "Data requests",
-    "securityCustomCode": "Custom code"
+    "securityCustomCode": "Custom code",
+    "securitySignIn": "Sign-in"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -2374,7 +2375,10 @@
       "recoveryLabel": "Recovery code",
       "recoveryHint": "Your role signs in with a passkey. If you lost it, enter one of your recovery codes.",
       "or": "or",
-      "passkeyHint": "Use your fingerprint, face, screen lock or a security key."
+      "passkeyHint": "Use your fingerprint, face, screen lock or a security key.",
+      "continueWith": "Continue with {name}",
+      "federatedFailed": "Single sign-on did not work. Try again, or sign in with your password.",
+      "federatedStepUp": "Your sign-in provider confirmed who you are. Finish with your own second factor."
     },
     "register": {
       "checking": "Checking…",
@@ -3959,6 +3963,20 @@
           "regenerateHint": "New codes replace every unused one.",
           "error": "Could not create new recovery codes."
         }
+      },
+      "mfaRequired": {
+        "title": "Turn on two-factor authentication",
+        "body": "Your role must use an authenticator app or a passkey on this site. Until you add one, the rest of the admin is unavailable.",
+        "action": "Set it up now"
+      },
+      "identities": {
+        "title": "Single sign-on",
+        "intro": "Sign-in providers linked to your account. Unlinking removes the link; the next sign-in through that provider links it again if your verified address still matches.",
+        "linked": "linked {date}",
+        "lastUsed": "last used {date}",
+        "unlink": "Unlink",
+        "unlinked": "Unlinked.",
+        "unlinkError": "Could not unlink."
       }
     },
     "adminPath": {
@@ -4404,6 +4422,46 @@
         "entry": "Version {version} · {date}",
         "hint": "Every change is also recorded in the audit log with what changed and who changed it."
       }
+    },
+    "signIn": {
+      "title": "Sign-in",
+      "subtitle": "Who must use a second factor, and which single sign-on providers staff can use.",
+      "errors": {
+        "loadFailed": "Could not load the sign-in settings.",
+        "saveFailed": "Could not save the sign-in settings."
+      },
+      "mfa": {
+        "title": "Required second factor",
+        "hint": "People in these roles must use an authenticator app or a passkey. Until they add one, they can only set one up, change their password, or sign out.",
+        "legend": "Require a second factor for",
+        "warnTitle": "Check your own account first",
+        "warn": "Accounts in these roles without a second factor lose access to the admin until they add one, and their last factor cannot be removed while this applies."
+      },
+      "providers": {
+        "title": "Single sign-on (OpenID Connect)",
+        "hint": "Staff can sign in through your identity provider. Only existing accounts are signed in: by the provider's account ID once linked, or the first time by a verified email address. Nobody is created, and password sign-in keeps working.",
+        "none": "No providers yet.",
+        "newProvider": "New provider",
+        "enabled": "Show on the staff sign-in page",
+        "name": "Button label",
+        "nameHint": "Shown as “Continue with …”.",
+        "id": "ID",
+        "callback": "Redirect URI to register with the provider:",
+        "issuer": "Issuer URL",
+        "issuerHint": "The provider's issuer; its /.well-known/openid-configuration is read from here. Must use https.",
+        "clientId": "Client ID",
+        "clientSecret": "Client secret",
+        "secretStored": "Stored — leave empty to keep it",
+        "clientSecretHint": "Stored encrypted. Leave empty for a public client.",
+        "scopes": "Scopes",
+        "allowedDomains": "Allowed email domains",
+        "allowedDomainsHint": "One per line. Empty allows any verified address that matches an existing account.",
+        "mfaAmr": "amr values that count as MFA",
+        "mfaAcr": "acr values that count as MFA",
+        "mfaHint": "When the provider's ID token proves one of these, its sign-in counts as two-factor. Otherwise, people who have their own second factor here are also asked for it.",
+        "remove": "Remove provider",
+        "add": "Add provider"
+      }
     }
   },
   "settings": {
@@ -4804,7 +4862,11 @@
       "dbName": "Database name",
       "dbUser": "Username",
       "networkBlockedNotRoot": "Restore a network backup from the installation root site.",
-      "unavailableExtensions": "Not installed on this server, so restored turned off: {list}. Install them, then turn them on."
+      "unavailableExtensions": "Not installed on this server, so restored turned off: {list}. Install them, then turn them on.",
+      "networkSites": "Network archive: {{count}} sites",
+      "networkContent": "content items",
+      "networkMedia": "media files",
+      "networkRestoreWarning": "Network restore requires a clean installation containing only its root site. Review these site addresses before restoring."
     },
     "manualRestartBody": "Restart Justflows on the server, then refresh this page.",
     "manualRestartBodyContainer": "Restart the Justflows container, then refresh this page.",

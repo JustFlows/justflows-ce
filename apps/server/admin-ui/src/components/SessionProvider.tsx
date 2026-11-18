@@ -16,6 +16,8 @@ export interface SessionInfo {
   disabledFeatures?: string[];
   /** The role must use a passkey and this account has none yet. */
   passkeyEnrollmentRequired?: boolean;
+  /** The MFA policy covers this role and the account has no second factor yet (justflows-ce#54). */
+  mfaEnrollmentRequired?: boolean;
 }
 
 interface SessionValue {

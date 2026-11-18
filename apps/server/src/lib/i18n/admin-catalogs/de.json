@@ -58,7 +58,8 @@
     "taxonomies": "Kategorien & Schlagwörter",
     "securityPasskeys": "Passkeys",
     "dataRequests": "Datenanfragen",
-    "securityCustomCode": "Eigener Code"
+    "securityCustomCode": "Eigener Code",
+    "securitySignIn": "Anmeldung"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -2406,7 +2407,10 @@
       "recoveryLabel": "Wiederherstellungscode",
       "recoveryHint": "Ihre Rolle meldet sich mit einem Passkey an. Falls Sie ihn verloren haben, geben Sie einen Ihrer Wiederherstellungscodes ein.",
       "or": "oder",
-      "passkeyHint": "Mit Fingerabdruck, Gesicht, Bildschirmsperre oder einem Sicherheitsschlüssel."
+      "passkeyHint": "Mit Fingerabdruck, Gesicht, Bildschirmsperre oder einem Sicherheitsschlüssel.",
+      "continueWith": "Weiter mit {name}",
+      "federatedFailed": "Die Single Sign-on-Anmeldung hat nicht funktioniert. Versuchen Sie es erneut oder melden Sie sich mit Ihrem Passwort an.",
+      "federatedStepUp": "Ihr Anmeldeanbieter hat Ihre Identität bestätigt. Schließen Sie die Anmeldung mit Ihrem eigenen zweiten Faktor ab."
     },
     "passwordLabel": "Passwort",
     "signInCta": "Anmelden →",
@@ -3440,6 +3444,20 @@
           "regenerateHint": "Neue Codes ersetzen alle unbenutzten.",
           "error": "Es konnten keine neuen Wiederherstellungscodes erstellt werden."
         }
+      },
+      "mfaRequired": {
+        "title": "Zwei-Faktor-Authentifizierung einschalten",
+        "body": "Ihre Rolle muss auf dieser Website eine Authenticator-App oder einen Passkey verwenden. Bis Sie einen hinzufügen, ist der Rest der Verwaltung nicht verfügbar.",
+        "action": "Jetzt einrichten"
+      },
+      "identities": {
+        "title": "Single Sign-on",
+        "intro": "Mit Ihrem Konto verknüpfte Anmeldeanbieter. Das Trennen entfernt die Verknüpfung; bei der nächsten Anmeldung über diesen Anbieter wird sie erneut angelegt, wenn Ihre bestätigte Adresse noch übereinstimmt.",
+        "linked": "verknüpft {date}",
+        "lastUsed": "zuletzt verwendet {date}",
+        "unlink": "Trennen",
+        "unlinked": "Getrennt.",
+        "unlinkError": "Die Verknüpfung konnte nicht getrennt werden."
       }
     },
     "adminPath": {
@@ -3884,6 +3902,46 @@
         "empty": "Noch keine Änderungen gespeichert.",
         "entry": "Version {version} · {date}",
         "hint": "Jede Änderung wird auch im Audit-Log festgehalten, mit dem, was sich geändert hat, und wer sie gemacht hat."
+      }
+    },
+    "signIn": {
+      "title": "Anmeldung",
+      "subtitle": "Wer einen zweiten Faktor verwenden muss und welche Single Sign-on-Anbieter Mitarbeitende nutzen können.",
+      "errors": {
+        "loadFailed": "Die Anmeldeeinstellungen konnten nicht geladen werden.",
+        "saveFailed": "Die Anmeldeeinstellungen konnten nicht gespeichert werden."
+      },
+      "mfa": {
+        "title": "Pflicht zum zweiten Faktor",
+        "hint": "Personen in diesen Rollen müssen eine Authenticator-App oder einen Passkey verwenden. Bis sie einen hinzufügen, können sie nur einen einrichten, ihr Passwort ändern oder sich abmelden.",
+        "legend": "Zweiten Faktor verlangen für",
+        "warnTitle": "Prüfen Sie zuerst Ihr eigenes Konto",
+        "warn": "Konten in diesen Rollen ohne zweiten Faktor verlieren den Zugang zur Verwaltung, bis sie einen hinzufügen. Ihr letzter Faktor kann nicht entfernt werden, solange diese Regel gilt."
+      },
+      "providers": {
+        "title": "Single Sign-on (OpenID Connect)",
+        "hint": "Mitarbeitende können sich über Ihren Identitätsanbieter anmelden. Angemeldet werden nur bestehende Konten: nach der Verknüpfung über die Konto-ID des Anbieters, beim ersten Mal über eine bestätigte E-Mail-Adresse. Es wird niemand angelegt, und die Anmeldung mit Passwort funktioniert weiterhin.",
+        "none": "Noch keine Anbieter.",
+        "newProvider": "Neuer Anbieter",
+        "enabled": "Auf der Anmeldeseite für Mitarbeitende anzeigen",
+        "name": "Beschriftung der Schaltfläche",
+        "nameHint": "Wird als „Weiter mit …“ angezeigt.",
+        "id": "ID",
+        "callback": "Weiterleitungs-URI, die Sie beim Anbieter registrieren:",
+        "issuer": "Issuer-URL",
+        "issuerHint": "Der Issuer des Anbieters; seine /.well-known/openid-configuration wird von hier gelesen. Muss https verwenden.",
+        "clientId": "Client-ID",
+        "clientSecret": "Client-Secret",
+        "secretStored": "Gespeichert – leer lassen, um es zu behalten",
+        "clientSecretHint": "Wird verschlüsselt gespeichert. Für einen öffentlichen Client leer lassen.",
+        "scopes": "Scopes",
+        "allowedDomains": "Zulässige E-Mail-Domains",
+        "allowedDomainsHint": "Eine pro Zeile. Leer erlaubt jede bestätigte Adresse, die zu einem bestehenden Konto passt.",
+        "mfaAmr": "amr-Werte, die als MFA gelten",
+        "mfaAcr": "acr-Werte, die als MFA gelten",
+        "mfaHint": "Belegt das ID-Token des Anbieters einen dieser Werte, gilt die Anmeldung als Zwei-Faktor-Anmeldung. Andernfalls werden Personen, die hier einen eigenen zweiten Faktor haben, zusätzlich danach gefragt.",
+        "remove": "Anbieter entfernen",
+        "add": "Anbieter hinzufügen"
       }
     }
   },
@@ -4654,7 +4712,11 @@
       "dbName": "Datenbankname",
       "dbUser": "Benutzername",
       "networkBlockedNotRoot": "Stellen Sie eine Netzwerksicherung von der Hauptwebsite der Installation aus wieder her.",
-      "unavailableExtensions": "Auf diesem Server nicht installiert, daher deaktiviert wiederhergestellt: {list}. Installieren Sie sie und aktivieren Sie sie dann."
+      "unavailableExtensions": "Auf diesem Server nicht installiert, daher deaktiviert wiederhergestellt: {list}. Installieren Sie sie und aktivieren Sie sie dann.",
+      "networkSites": "Netzwerkarchiv: {{count}} Websites",
+      "networkContent": "Inhaltselemente",
+      "networkMedia": "Mediendateien",
+      "networkRestoreWarning": "Die Netzwerkwiederherstellung erfordert eine leere Installation nur mit der Hauptwebsite. Prüfen Sie die Adressen vor der Wiederherstellung."
     },
     "performance": {
       "loadFailed": "Die Leistungseinstellungen konnten nicht geladen werden",
