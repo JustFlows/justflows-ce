@@ -4444,12 +4444,8 @@
       "scope": "Sicherungsumfang",
       "scopeSite": "Nur aktuelle Website",
       "scopeRoot": "Hauptwebsite",
-      "scopeNetwork": "Hauptwebsite und alle Unterseiten",
-      "scopeNetworkHint": "Erstellt ein Archiv mit allen registrierten Websites, einschließlich Websites mit eigener Datenbank.",
-      "networkSites": "Netzwerkarchiv: {{count}} Websites",
-      "networkContent": "Inhaltselemente",
-      "networkMedia": "Mediendateien",
-      "networkRestoreWarning": "Die Netzwerkwiederherstellung erfordert eine leere Installation nur mit der Hauptwebsite. Prüfen Sie die Adressen vor der Wiederherstellung.",
+      "scopeNetwork": "Hauptwebsite und alle Unterseiten (eine Datei)",
+      "scopeNetworkHint": "Erstellt ein Archiv mit der Hauptwebsite und allen Unterseiten ihres Arbeitsbereichs, auch Websites mit eigener Datenbank. Auf einer leeren Installation wiederhergestellt, entsteht das ganze Netzwerk neu.",
       "scopeSubsites": "Unterseiten (separate Dateien)",
       "scopeSubsitesHint": "Erstellt für jede Unterseite eine eigene .jfbackup-Datei. Stellen Sie jede Datei auf der passenden Unterseite wieder her.",
       "restoreTarget": "Wiederherstellen in",
@@ -4514,7 +4510,33 @@
       "secureFtp": "Sicheres FTP (FTPS) verlangen",
       "s3Endpoint": "S3-Endpunkt (optional)",
       "s3Prefix": "S3-Ordnerpräfix",
-      "s3PathStyle": "S3-Pfadadressierung verwenden"
+      "s3PathStyle": "S3-Pfadadressierung verwenden",
+      "networkValidTitle": "Integrität der Netzwerksicherung geprüft.",
+      "networkSummary": {
+        "one": "{site} · {date} · {count} Website",
+        "other": "{site} · {date} · {count} Websites"
+      },
+      "networkRecords": "Datensätze: {count}",
+      "networkHostname": "Adresse für {site}",
+      "networkHostnameHint": "Adresse in der Sicherung: {hostname}",
+      "networkRootHostnameHint": "Die Hauptwebsite behält die Adresse dieser Installation.",
+      "networkMissingPlugins": "Installieren Sie zuerst diese Plugins aus vertrauenswürdigen Paketen: {list}",
+      "networkMissingThemes": "Installieren Sie zuerst diese Themes aus vertrauenswürdigen Paketen: {list}",
+      "networkBlockedNotClean": {
+        "one": "Die Netzwerkwiederherstellung braucht eine leere Installation. Dieser Arbeitsbereich hat bereits {count} Unterseite.",
+        "other": "Die Netzwerkwiederherstellung braucht eine leere Installation. Dieser Arbeitsbereich hat bereits {count} Unterseiten."
+      },
+      "networkBlockedMultisite": "Aktivieren Sie Multisite (JF_MULTISITE=true) und starten Sie neu, bevor Sie Unterseiten wiederherstellen.",
+      "networkBlockedOperator": "Nur ein Plattformbetreiber kann ein Netzwerk mit Unterseiten wiederherstellen.",
+      "networkRestoreHint": "Neue Unterseiten bleiben offline, bis die Hauptwebsite wiederhergestellt ist. Schlägt ein Schritt fehl oder brechen Sie ab, werden sie entfernt und die Hauptwebsite bleibt unverändert. Konten werden nicht wiederhergestellt; jede neue Unterseite erhält Ihr Administratorkonto.",
+      "networkConfirmationPhrase": "RESTORE NETWORK",
+      "networkRestore": "Netzwerk wiederherstellen",
+      "networkRestoring": "Netzwerk wird wiederhergestellt…",
+      "networkRestoreComplete": {
+        "one": "Netzwerk wiederhergestellt: {count} Website. Laden Sie die Verwaltung neu, um sie zu sehen.",
+        "other": "Netzwerk wiederhergestellt: {count} Websites. Laden Sie die Verwaltung neu, um sie zu sehen."
+      },
+      "networkRestoreFailed": "Das Netzwerk konnte nicht wiederhergestellt werden"
     },
     "performance": {
       "loadFailed": "Die Leistungseinstellungen konnten nicht geladen werden",

@@ -4444,12 +4444,8 @@
       "scope": "Étendue de la sauvegarde",
       "scopeSite": "Site actuel uniquement",
       "scopeRoot": "Site racine",
-      "scopeNetwork": "Site racine et tous les sous-sites",
-      "scopeNetworkHint": "Crée une archive contenant tous les sites enregistrés, y compris ceux utilisant une base distincte.",
-      "networkSites": "Archive réseau : {{count}} sites",
-      "networkContent": "éléments de contenu",
-      "networkMedia": "fichiers médias",
-      "networkRestoreWarning": "La restauration réseau exige une installation vide ne contenant que le site racine. Vérifiez les adresses avant de restaurer.",
+      "scopeNetwork": "Site racine et tous les sous-sites (un fichier)",
+      "scopeNetworkHint": "Crée une archive avec le site racine et chaque sous-site de son espace de travail, y compris ceux qui utilisent une base distincte. Restaurez-la sur une installation vierge pour reconstruire tout le réseau.",
       "scopeSubsites": "Sous-sites (fichiers séparés)",
       "scopeSubsitesHint": "Crée un fichier .jfbackup indépendant pour chaque sous-site. Restaurez chaque fichier dans le sous-site correspondant.",
       "restoreTarget": "Restaurer dans",
@@ -4514,7 +4510,33 @@
       "secureFtp": "Exiger FTP sécurisé (FTPS)",
       "s3Endpoint": "Point de terminaison S3 (facultatif)",
       "s3Prefix": "Préfixe de dossier S3",
-      "s3PathStyle": "Utiliser l’adressage S3 par chemin"
+      "s3PathStyle": "Utiliser l’adressage S3 par chemin",
+      "networkValidTitle": "Intégrité de la sauvegarde réseau vérifiée.",
+      "networkSummary": {
+        "one": "{site} · {date} · {count} site",
+        "other": "{site} · {date} · {count} sites"
+      },
+      "networkRecords": "Enregistrements : {count}",
+      "networkHostname": "Adresse pour {site}",
+      "networkHostnameHint": "Adresse dans la sauvegarde : {hostname}",
+      "networkRootHostnameHint": "Le site racine garde l'adresse de cette installation.",
+      "networkMissingPlugins": "Installez d'abord ces extensions depuis des paquets de confiance : {list}",
+      "networkMissingThemes": "Installez d'abord ces thèmes depuis des paquets de confiance : {list}",
+      "networkBlockedNotClean": {
+        "one": "La restauration réseau nécessite une installation vierge. Cet espace de travail a déjà {count} sous-site.",
+        "other": "La restauration réseau nécessite une installation vierge. Cet espace de travail a déjà {count} sous-sites."
+      },
+      "networkBlockedMultisite": "Activez le multisite (JF_MULTISITE=true) et redémarrez avant de restaurer des sous-sites.",
+      "networkBlockedOperator": "Seul un opérateur de plateforme peut restaurer un réseau avec des sous-sites.",
+      "networkRestoreHint": "Les nouveaux sous-sites restent hors ligne jusqu'à la restauration du site racine. Si une étape échoue ou si vous annulez, ils sont supprimés et le site racine reste inchangé. Les comptes ne sont pas restaurés ; chaque nouveau sous-site reçoit votre compte administrateur.",
+      "networkConfirmationPhrase": "RESTORE NETWORK",
+      "networkRestore": "Restaurer le réseau",
+      "networkRestoring": "Restauration du réseau…",
+      "networkRestoreComplete": {
+        "one": "Réseau restauré : {count} site. Rechargez l'administration pour le voir.",
+        "other": "Réseau restauré : {count} sites. Rechargez l'administration pour les voir."
+      },
+      "networkRestoreFailed": "Impossible de restaurer le réseau"
     },
     "performance": {
       "loadFailed": "Impossible de charger les paramètres de performance",

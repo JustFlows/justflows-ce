@@ -12,13 +12,23 @@ A `.jfbackup` file is a portable archive of one site's content, design
 configuration, and original media, with a plugin and theme inventory. Backups can
 go to a download, FTP/FTPS, email, or an S3-compatible bucket.
 
+On the installation root, the backup scope can also be **Root site and all
+subsites (one file)**. That network backup holds each site's own checksummed
+archive, the site hierarchy, each site's hostnames, and one plugin and theme
+inventory that lists a shared package once with the sites that use it. Sites
+that use a separate database are read from that database. A network backup is
+limited to 100 subsites and 512 MB. Automatic backups can use the same scope.
+
 A backup is not the whole installation:
 
 - It leaves out credentials and environment-specific values, so keep `.env` and
   provider credentials separately in a secret store.
 - Plugins and themes are listed but not included. Reinstall them from trusted
   packages.
-- Each file covers one site. Back up the root site and every subsite you need.
+- A single-site file covers one site. Use a network backup to keep the root site
+  and every subsite together.
+- User accounts and passwords are not restored. Subsites restored from a network
+  backup get the account of the administrator who restored them.
 
 ## Protect your archives
 
@@ -65,6 +75,34 @@ Never run a drill against production.
 9. Record the date, the backup used, the time taken, and any problems. Compare the
    time with your recovery time objective.
 10. Delete the drill installation and its data.
+
+## Restore a whole network
+
+A network backup restores onto a clean installation: a root site with no
+subsites. Restoring subsites needs multisite on (`JF_MULTISITE=true`) and a
+platform operator.
+
+1. Install the plugins and themes the validation lists as missing, from trusted
+   packages.
+2. In **Admin → Tools** on the root site, validate the network file. Validation
+   checks every site archive and shows each site with its record and media
+   counts before anything changes.
+3. Review the address for each subsite. Each field starts with the subsite's
+   primary hostname in the backup. Change it when this installation uses other
+   addresses, for example in a drill. Each address must be free on this
+   installation. The root site keeps this installation's address. Custom
+   domains, extra hostnames, and separate database connections are not
+   recreated: subsites are created in the workspace's database, and you connect
+   domains again under Settings → Domains.
+4. Type `RESTORE NETWORK` and restore. The restore shows its progress and can be
+   cancelled.
+
+Subsites are created offline and restored first. The root site is restored last
+and its restore is transactional. If any step fails or you cancel before the
+root site is restored, the new subsites are removed, and the root site is left
+as it was. Subsites come online only after every site has been restored. The
+restore is recorded in the audit log as `backup.network_restored`, with a
+failure outcome when it does not finish.
 
 ## Backup readiness in the Security Center
 

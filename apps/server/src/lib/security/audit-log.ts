@@ -165,6 +165,7 @@ export const AUDIT_ACTIONS = [
   "backup.delivered",
   "backup.schedule_changed",
   "backup.schedule_started",
+  "backup.network_restored",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

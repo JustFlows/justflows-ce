@@ -8,14 +8,14 @@ import { getDurableJobQueue } from "../plugins/plugin-jobs.js";
 import { getJustflowsVersion } from "../runtime/version.js";
 import { installationRootSiteId } from "../tenancy/registry.js";
 import { deliverBackup, type BackupDestination } from "./destinations.js";
-import { buildSiteBackup, buildSubsiteBackups, type BackupArtifact } from "./workspace-backup.js";
+import { buildNetworkBackup, buildSiteBackup, buildSubsiteBackups, type BackupArtifact } from "./workspace-backup.js";
 
 export const AUTOMATIC_BACKUP_JOB = "backup.automatic";
 const AUTOMATIC_BACKUP_SCAN_JOB = "backup.schedule-scan";
 const TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export type BackupFrequency = "daily" | "weekly" | "monthly";
-export type BackupScheduleScope = "root" | "subsites" | "all";
+export type BackupScheduleScope = "root" | "subsites" | "all" | "network";
 
 export interface BackupScheduleInput {
   enabled: boolean;
@@ -83,7 +83,7 @@ function state(row?: ScheduleRow): BackupScheduleState {
     timeUtc: TIME.test(row.time_utc) ? row.time_utc : "02:00",
     weekday: Math.min(6, Math.max(0, Number(row.weekday) || 0)),
     dayOfMonth: Math.min(31, Math.max(1, Number(row.day_of_month) || 1)),
-    scope: row.scope === "root" || row.scope === "subsites" ? row.scope : "all",
+    scope: row.scope === "root" || row.scope === "subsites" || row.scope === "network" ? row.scope : "all",
     destination: row.destination === "ftp" || row.destination === "email" ? row.destination : "s3",
     nextRunAt: iso(row.next_run_at),
     lastJobId: row.last_job_id ? String(row.last_job_id) : null,
@@ -156,6 +156,9 @@ export async function saveBackupSchedule(siteId: string, input: BackupScheduleIn
 async function artifactsForRun(siteId: string, settings: BackupScheduleInput): Promise<BackupArtifact[]> {
   const createdAt = new Date().toISOString();
   const driver = (process.env.DB_DRIVER ?? "postgres") as "postgres" | "mysql" | "mariadb";
+  if (settings.scope === "network") {
+    return [await buildNetworkBackup(siteId, createdAt, driver, getJustflowsVersion())];
+  }
   const artifacts: BackupArtifact[] = [];
   if (settings.scope === "root" || settings.scope === "all") {
     artifacts.push(await buildSiteBackup(siteId, createdAt, driver, getJustflowsVersion()));

@@ -4444,12 +4444,8 @@
       "scope": "Alcance de la copia",
       "scopeSite": "Solo el sitio actual",
       "scopeRoot": "Sitio raíz",
-      "scopeNetwork": "Sitio raíz y todos los subsitios",
-      "scopeNetworkHint": "Crea un archivo con todos los sitios registrados, incluidos los que usan una base de datos separada.",
-      "networkSites": "Archivo de red: {{count}} sitios",
-      "networkContent": "elementos de contenido",
-      "networkMedia": "archivos multimedia",
-      "networkRestoreWarning": "La restauración de red requiere una instalación limpia que solo contenga el sitio raíz. Revisa las direcciones antes de restaurar.",
+      "scopeNetwork": "Sitio raíz y todos los subsitios (un archivo)",
+      "scopeNetworkHint": "Crea un archivo con el sitio raíz y todos los subsitios de su espacio de trabajo, incluidos los que usan una base de datos separada. Restáuralo en una instalación limpia para reconstruir toda la red.",
       "scopeSubsites": "Subsitios (archivos separados)",
       "scopeSubsitesHint": "Crea un archivo .jfbackup independiente para cada subsitio. Restaura cada archivo en el subsitio correspondiente.",
       "restoreTarget": "Restaurar en",
@@ -4514,7 +4510,33 @@
       "secureFtp": "Exigir FTP seguro (FTPS)",
       "s3Endpoint": "Endpoint S3 (opcional)",
       "s3Prefix": "Prefijo de carpeta S3",
-      "s3PathStyle": "Usar direccionamiento S3 por ruta"
+      "s3PathStyle": "Usar direccionamiento S3 por ruta",
+      "networkValidTitle": "Integridad de la copia de red verificada.",
+      "networkSummary": {
+        "one": "{site} · {date} · {count} sitio",
+        "other": "{site} · {date} · {count} sitios"
+      },
+      "networkRecords": "Registros de datos: {count}",
+      "networkHostname": "Dirección para {site}",
+      "networkHostnameHint": "Dirección en la copia: {hostname}",
+      "networkRootHostnameHint": "El sitio raíz conserva la dirección de esta instalación.",
+      "networkMissingPlugins": "Instala primero estos plugins desde paquetes de confianza: {list}",
+      "networkMissingThemes": "Instala primero estos temas desde paquetes de confianza: {list}",
+      "networkBlockedNotClean": {
+        "one": "La restauración de red necesita una instalación limpia. Este espacio de trabajo ya tiene {count} subsitio.",
+        "other": "La restauración de red necesita una instalación limpia. Este espacio de trabajo ya tiene {count} subsitios."
+      },
+      "networkBlockedMultisite": "Activa multisitio (JF_MULTISITE=true) y reinicia antes de restaurar subsitios.",
+      "networkBlockedOperator": "Solo un operador de la plataforma puede restaurar una red con subsitios.",
+      "networkRestoreHint": "Los subsitios nuevos siguen sin conexión hasta que se restaura el sitio raíz. Si un paso falla o cancelas, se eliminan y el sitio raíz queda como estaba. Las cuentas no se restauran; cada subsitio nuevo recibe tu cuenta de administrador.",
+      "networkConfirmationPhrase": "RESTORE NETWORK",
+      "networkRestore": "Restaurar red",
+      "networkRestoring": "Restaurando la red…",
+      "networkRestoreComplete": {
+        "one": "Red restaurada: {count} sitio. Recarga la administración para verlo.",
+        "other": "Red restaurada: {count} sitios. Recarga la administración para verlos."
+      },
+      "networkRestoreFailed": "No se pudo restaurar la red"
     },
     "performance": {
       "loadFailed": "No se pudieron cargar los ajustes de rendimiento",

@@ -4,7 +4,8 @@ import { getControlDb, getDb, runWithDatabase } from "../database/db.js";
 import { effectiveDatabaseMode } from "../tenancy/choice.js";
 import { borrowSeparateDatabase, separateDatabaseForSite } from "../tenancy/connections.js";
 import { exportSiteData } from "./site-export.js";
-import { createPortableBackup } from "./portable-archive.js";
+import { createPortableBackup, type PortableBackupData } from "./portable-archive.js";
+import { createNetworkBackup, type NetworkSiteHostname } from "./network-archive.js";
 
 const MAX_SUBSITES_PER_BACKUP = 100;
 const MAX_SUBSITE_BACKUP_BYTES = 512 * 1024 * 1024;
@@ -14,6 +15,8 @@ export interface BackupArtifact {
   siteName: string;
   archive: Buffer;
   filename: string;
+  /** Extension inventory of the site, kept so a network archive can list shared packages once. */
+  extensions?: PortableBackupData["extensions"];
 }
 
 /** Build one portable archive for a selected site in its authoritative database. */
@@ -43,6 +46,7 @@ export async function buildSiteBackup(
         data,
       }),
       filename: `justflows-site-${filenamePart(String(site.name ?? "site"))}-${createdAt.slice(0, 10)}.jfbackup`,
+      extensions: data.extensions,
     };
   });
 }
@@ -84,14 +88,10 @@ function filenamePart(value: string): string {
   );
 }
 
-/** Build one independent portable archive for each subsite in the root workspace. */
-export async function buildSubsiteBackups(
+/** The live subsites of the root site's workspace, oldest first, bounded per job. */
+export async function workspaceSubsites(
   rootSiteId: string,
-  createdAt: string,
-  databaseDriver: "postgres" | "mysql" | "mariadb",
-  coreVersion: string | undefined,
-  options: { signal?: AbortSignal; progress?: (completed: number, total: number) => void } = {},
-): Promise<BackupArtifact[]> {
+): Promise<Array<{ id: string; name: string }>> {
   const control = await getControlDb();
   const roots = await control.query<{ tenant_id: string }>(
     "SELECT tenant_id FROM sites WHERE id = ? LIMIT 1",
@@ -105,38 +105,114 @@ export async function buildSubsiteBackups(
      ORDER BY created_at ASC, id ASC LIMIT ${MAX_SUBSITES_PER_BACKUP + 1}`,
     [tenantId, rootSiteId],
   );
-  if (sites.length === 0) throw new Error("This workspace has no subsites to back up");
   if (sites.length > MAX_SUBSITES_PER_BACKUP)
     throw new Error("Subsite backup is limited to 100 sites per job");
+  return sites.map((site) => ({ id: String(site.id), name: String(site.name) }));
+}
+
+/** Build one independent portable archive for each subsite in the root workspace. */
+export async function buildSubsiteBackups(
+  rootSiteId: string,
+  createdAt: string,
+  databaseDriver: "postgres" | "mysql" | "mariadb",
+  coreVersion: string | undefined,
+  options: { signal?: AbortSignal; progress?: (completed: number, total: number) => void } = {},
+): Promise<BackupArtifact[]> {
+  const sites = await workspaceSubsites(rootSiteId);
+  if (sites.length === 0) throw new Error("This workspace has no subsites to back up");
   const artifacts: BackupArtifact[] = [];
   let totalBytes = 0;
   for (const [index, site] of sites.entries()) {
     if (options.signal?.aborted) throw new Error("Backup cancelled");
-    const data = await withBackupSiteDatabase(String(site.id), async () =>
-      exportSiteData(await getDb(), String(site.id), { signal: options.signal }),
+    const data = await withBackupSiteDatabase(site.id, async () =>
+      exportSiteData(await getDb(), site.id, { signal: options.signal }),
     );
     const archive = createPortableBackup({
       createdAt,
-      source: {
-        siteId: String(site.id),
-        siteName: String(site.name),
-        databaseDriver,
-        coreVersion,
-      },
+      source: { siteId: site.id, siteName: site.name, databaseDriver, coreVersion },
       data,
     });
     totalBytes += archive.byteLength;
     if (totalBytes > MAX_SUBSITE_BACKUP_BYTES)
       throw new Error("Combined subsite backups exceed the 512 MB job limit");
     artifacts.push({
-      siteId: String(site.id),
-      siteName: String(site.name),
+      siteId: site.id,
+      siteName: site.name,
       archive,
-      filename: `justflows-subsite-${filenamePart(String(site.name))}-${createdAt.slice(0, 10)}.jfbackup`,
+      filename: `justflows-subsite-${filenamePart(site.name)}-${createdAt.slice(0, 10)}.jfbackup`,
+      extensions: data.extensions,
     });
     options.progress?.(index + 1, sites.length);
   }
   return artifacts;
+}
+
+/** Active hostnames of the given sites, primary first, read from the routing database. */
+async function siteHostnames(siteIds: string[]): Promise<Map<string, NetworkSiteHostname[]>> {
+  const result = new Map<string, NetworkSiteHostname[]>(siteIds.map((id) => [id, []]));
+  if (siteIds.length === 0) return result;
+  const control = await getControlDb();
+  const rows = await control.query<{ site_id: string; hostname: string; is_primary: boolean | number }>(
+    `SELECT site_id, hostname, is_primary FROM site_domains
+     WHERE site_id IN (${siteIds.map(() => "?").join(", ")}) AND status = 'active'
+     ORDER BY hostname ASC`,
+    siteIds,
+  );
+  for (const row of rows) {
+    const list = result.get(String(row.site_id));
+    if (!list) continue;
+    const primary = row.is_primary === true || Number(row.is_primary) === 1;
+    list[primary ? "unshift" : "push"]({ hostname: String(row.hostname), primary });
+  }
+  return result;
+}
+
+/**
+ * Build one network archive holding the root site and every subsite of its
+ * workspace. Each site is still read through its own authoritative database.
+ */
+export async function buildNetworkBackup(
+  rootSiteId: string,
+  createdAt: string,
+  databaseDriver: "postgres" | "mysql" | "mariadb",
+  coreVersion: string | undefined,
+  options: { signal?: AbortSignal; progress?: (completed: number, total: number) => void } = {},
+): Promise<BackupArtifact> {
+  const subsites = await workspaceSubsites(rootSiteId);
+  const total = subsites.length + 1;
+  const root = await buildSiteBackup(rootSiteId, createdAt, databaseDriver, coreVersion, {
+    signal: options.signal,
+  });
+  options.progress?.(1, total);
+  const artifacts: BackupArtifact[] = [root];
+  if (subsites.length > 0) {
+    artifacts.push(
+      ...(await buildSubsiteBackups(rootSiteId, createdAt, databaseDriver, coreVersion, {
+        signal: options.signal,
+        progress: (completed) => options.progress?.(completed + 1, total),
+      })),
+    );
+  }
+  if (options.signal?.aborted) throw new Error("Backup cancelled");
+  const hostnames = await siteHostnames(artifacts.map((artifact) => artifact.siteId));
+  return {
+    siteId: rootSiteId,
+    siteName: root.siteName,
+    archive: createNetworkBackup({
+      createdAt,
+      databaseDriver,
+      coreVersion,
+      sites: artifacts.map((artifact, index) => ({
+        siteId: artifact.siteId,
+        siteName: artifact.siteName,
+        root: index === 0,
+        hostnames: hostnames.get(artifact.siteId) ?? [],
+        archive: artifact.archive,
+        extensions: artifact.extensions,
+      })),
+    }),
+    filename: `justflows-network-${filenamePart(root.siteName)}-${createdAt.slice(0, 10)}.jfbackup`,
+  };
 }
 
 /** Sites in the root workspace that may receive an independently restored archive. */

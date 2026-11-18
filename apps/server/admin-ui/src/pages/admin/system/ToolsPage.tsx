@@ -30,6 +30,44 @@ interface BackupValidation {
   restoreAvailable: boolean;
 }
 
+interface NetworkBackupValidation {
+  kind: "network";
+  summary: {
+    createdAt: string;
+    source: { rootSiteId: string; rootSiteName: string; databaseDriver: string; coreVersion?: string };
+    sites: Array<{
+      siteId: string;
+      siteName: string;
+      root: boolean;
+      hostnames: Array<{ hostname: string; primary: boolean }>;
+      suggestedHostname: string | null;
+      records: number;
+      mediaFiles: number;
+      mediaBytes: number;
+    }>;
+  };
+  target: {
+    clean: boolean;
+    existingSubsites: number;
+    multisite: boolean;
+    missingPlugins: string[];
+    missingThemes: string[];
+  };
+  restoreAvailable: boolean;
+  restoreBlockedReason: "notClean" | "multisiteOff" | "notOperator" | null;
+}
+
+/** Network archives start with this magic, so the page can pick the right endpoint before uploading. */
+const NETWORK_BACKUP_MAGIC = "JFNETBK1";
+
+async function isNetworkBackupFile(file: File): Promise<boolean> {
+  try {
+    return (await file.slice(0, NETWORK_BACKUP_MAGIC.length).text()) === NETWORK_BACKUP_MAGIC;
+  } catch {
+    return false;
+  }
+}
+
 interface BackupDestinations {
   ftp: {
     enabled: boolean;
@@ -62,7 +100,7 @@ interface BackupSchedule {
   timeUtc: string;
   weekday: number;
   dayOfMonth: number;
-  scope: "root" | "subsites" | "all";
+  scope: "root" | "subsites" | "all" | "network";
   destination: "ftp" | "email" | "s3";
   nextRunAt: string | null;
   lastStatus: string | null;
@@ -244,7 +282,14 @@ export default function ToolsPage() {
   const [backupDestinations, setBackupDestinations] = useState<BackupDestinations | null>(null);
   const [backupDestinationsSaving, setBackupDestinationsSaving] = useState(false);
   const [backupDelivered, setBackupDelivered] = useState<string | null>(null);
-  const [backupScope, setBackupScope] = useState<"site" | "subsites">("site");
+  const [backupScope, setBackupScope] = useState<"site" | "subsites" | "network">("site");
+  const [networkValidation, setNetworkValidation] = useState<NetworkBackupValidation | null>(null);
+  const [networkHostnames, setNetworkHostnames] = useState<Record<string, string>>({});
+  const [networkConfirmation, setNetworkConfirmation] = useState("");
+  const [networkRestoreJobId, setNetworkRestoreJobId] = useState<string | null>(null);
+  const [networkRestoreProgress, setNetworkRestoreProgress] = useState(0);
+  const [networkRestoreMessage, setNetworkRestoreMessage] = useState("");
+  const [networkRestoredCount, setNetworkRestoredCount] = useState<number | null>(null);
   const [restoreTargets, setRestoreTargets] = useState<
     Array<{ id: string; name: string; root: boolean }>
   >([]);
@@ -316,6 +361,7 @@ export default function ToolsPage() {
   const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const suggestedOrigin = sxRuntimeInfo?.appUrl || browserOrigin;
   const restorePhrase = t("tools.backup.confirmationPhrase");
+  const networkPhrase = t("tools.backup.networkConfirmationPhrase");
 
   async function loadPerfStats() {
     setStatsLoading(true);
@@ -719,9 +765,29 @@ export default function ToolsPage() {
     setBackupValidating(true);
     setBackupError(null);
     setBackupValidation(null);
+    setNetworkValidation(null);
+    setNetworkRestoredCount(null);
     setBackupFile(null);
     setBackupRestored(false);
     try {
+      if (await isNetworkBackupFile(file)) {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/backups/network/validate", { method: "POST", body: form });
+        const body = (await res.json()) as NetworkBackupValidation & { error?: string };
+        if (!res.ok) throw new Error(body.error ?? t("tools.backup.validateFailed"));
+        setNetworkValidation(body);
+        setNetworkHostnames(
+          Object.fromEntries(
+            body.summary.sites
+              .filter((site) => !site.root)
+              .map((site) => [site.siteId, site.suggestedHostname ?? ""]),
+          ),
+        );
+        setNetworkConfirmation("");
+        setBackupFile(file);
+        return;
+      }
       const form = new FormData();
       form.append("file", file);
       const res = await fetch("/api/backups/validate", { method: "POST", body: form });
@@ -759,6 +825,59 @@ export default function ToolsPage() {
     } finally {
       setBackupRestoring(false);
     }
+  }
+
+  async function restoreNetwork() {
+    if (!backupFile || !networkValidation) return;
+    setBackupRestoring(true);
+    setBackupError(null);
+    setNetworkRestoredCount(null);
+    setNetworkRestoreProgress(0);
+    setNetworkRestoreMessage("");
+    try {
+      const form = new FormData();
+      form.append("file", backupFile);
+      form.append("confirmation", networkConfirmation);
+      form.append("hostnames", JSON.stringify(networkHostnames));
+      const start = await fetch("/api/backups/network/restore", { method: "POST", body: form });
+      const started = (await start.json()) as { jobId?: string; error?: string };
+      if (!start.ok || !started.jobId)
+        throw new Error(started.error ?? t("tools.backup.networkRestoreFailed"));
+      setNetworkRestoreJobId(started.jobId);
+      for (;;) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const response = await fetch(`/api/backups/network/restore/${started.jobId}`);
+        const status = (await response.json()) as {
+          status?: "running" | "done" | "failed" | "cancelled";
+          progress?: number;
+          message?: string;
+          error?: string;
+          result?: { sites: unknown[] };
+        };
+        if (!response.ok) throw new Error(status.error ?? t("tools.backup.networkRestoreFailed"));
+        setNetworkRestoreProgress(status.progress ?? 0);
+        setNetworkRestoreMessage(status.message ?? "");
+        if (status.status === "done") {
+          setNetworkRestoredCount(status.result?.sites.length ?? 0);
+          setNetworkValidation(null);
+          setBackupFile(null);
+          setNetworkConfirmation("");
+          return;
+        }
+        if (status.status === "failed" || status.status === "cancelled")
+          throw new Error(status.error ?? t("tools.backup.networkRestoreFailed"));
+      }
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBackupRestoring(false);
+      setNetworkRestoreJobId(null);
+    }
+  }
+
+  async function cancelNetworkRestore() {
+    if (networkRestoreJobId)
+      await fetch(`/api/backups/network/restore/${networkRestoreJobId}`, { method: "DELETE" });
   }
 
   async function savePerformanceSettings() {
@@ -1888,15 +2007,19 @@ export default function ToolsPage() {
                 id="backup-scope"
                 className="jf-input"
                 value={backupScope}
-                onChange={(event) => setBackupScope(event.target.value as "site" | "subsites")}
+                onChange={(event) => setBackupScope(event.target.value as typeof backupScope)}
               >
                 <option value="site">
                   {installationRoot ? t("tools.backup.scopeRoot") : t("tools.backup.scopeSite")}
                 </option>
                 <option value="subsites">{t("tools.backup.scopeSubsites")}</option>
+                <option value="network">{t("tools.backup.scopeNetwork")}</option>
               </select>
               {backupScope === "subsites" && (
                 <p className="jf-field__hint">{t("tools.backup.scopeSubsitesHint")}</p>
+              )}
+              {backupScope === "network" && (
+                <p className="jf-field__hint">{t("tools.backup.scopeNetworkHint")}</p>
               )}
             </div>
           )}
@@ -1908,6 +2031,11 @@ export default function ToolsPage() {
           {backupRestored && (
             <div className="jf-alert jf-alert--success" role="status">
               {t("tools.backup.restoreComplete")}
+            </div>
+          )}
+          {networkRestoredCount !== null && (
+            <div className="jf-alert jf-alert--success" role="status">
+              {t("tools.backup.networkRestoreComplete", { count: networkRestoredCount })}
             </div>
           )}
           {backupDelivered && (
@@ -2295,6 +2423,7 @@ export default function ToolsPage() {
                       <option value="root">{t("tools.backup.scopeRoot")}</option>
                       <option value="subsites">{t("tools.backup.scopeSubsites")}</option>
                       <option value="all">{t("tools.backup.scheduleAllSites")}</option>
+                      <option value="network">{t("tools.backup.scopeNetwork")}</option>
                     </select>
                   </label>
                   <label className="jf-field">
@@ -2317,6 +2446,142 @@ export default function ToolsPage() {
                 </div>
               </div>
             </details>
+          )}
+          {networkValidation && (
+            <div className="jf-alert jf-alert--success" role="status">
+              <strong>{t("tools.backup.networkValidTitle")}</strong>{" "}
+              {t("tools.backup.networkSummary", {
+                site: networkValidation.summary.source.rootSiteName,
+                date: new Date(networkValidation.summary.createdAt).toLocaleString(),
+                count: networkValidation.summary.sites.length,
+              })}
+              {networkValidation.target.missingPlugins.length > 0 && (
+                <p className="jf-field__hint">
+                  {t("tools.backup.networkMissingPlugins", {
+                    list: networkValidation.target.missingPlugins.join(", "),
+                  })}
+                </p>
+              )}
+              {networkValidation.target.missingThemes.length > 0 && (
+                <p className="jf-field__hint">
+                  {t("tools.backup.networkMissingThemes", {
+                    list: networkValidation.target.missingThemes.join(", "),
+                  })}
+                </p>
+              )}
+              <ul className="jf-stack" style={{ listStyle: "none", padding: 0 }}>
+                {networkValidation.summary.sites.map((site) => (
+                  <li key={site.siteId} className="jf-field">
+                    {site.root ? (
+                      <>
+                        <span className="jf-field__label">
+                          {site.siteName} ({t("tools.backup.rootSite")})
+                        </span>
+                        <p className="jf-field__hint">{t("tools.backup.networkRootHostnameHint")}</p>
+                      </>
+                    ) : (
+                      <>
+                        <label className="jf-field__label" htmlFor={`network-host-${site.siteId}`}>
+                          {t("tools.backup.networkHostname", { site: site.siteName })}
+                        </label>
+                        <input
+                          id={`network-host-${site.siteId}`}
+                          className="jf-input"
+                          value={networkHostnames[site.siteId] ?? ""}
+                          onChange={(event) =>
+                            setNetworkHostnames({
+                              ...networkHostnames,
+                              [site.siteId]: event.target.value,
+                            })
+                          }
+                          autoComplete="off"
+                          spellCheck={false}
+                          disabled={backupRestoring}
+                        />
+                        {site.suggestedHostname && (
+                          <p className="jf-field__hint">
+                            {t("tools.backup.networkHostnameHint", {
+                              hostname: site.suggestedHostname,
+                            })}
+                          </p>
+                        )}
+                      </>
+                    )}
+                    <p className="jf-field__hint">
+                      {t("tools.backup.networkRecords", { count: site.records })} ·{" "}
+                      {t("tools.backup.mediaSummary", {
+                        count: site.mediaFiles,
+                        size: formatBytes(site.mediaBytes),
+                      })}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              {networkValidation.restoreBlockedReason ? (
+                <div className="jf-alert jf-alert--warning" role="alert">
+                  {networkValidation.restoreBlockedReason === "notClean"
+                    ? t("tools.backup.networkBlockedNotClean", {
+                        count: networkValidation.target.existingSubsites,
+                      })
+                    : networkValidation.restoreBlockedReason === "multisiteOff"
+                      ? t("tools.backup.networkBlockedMultisite")
+                      : t("tools.backup.networkBlockedOperator")}
+                </div>
+              ) : (
+                <>
+                  <div className="jf-field">
+                    <label className="jf-field__label" htmlFor="network-restore-confirmation">
+                      {t("tools.backup.confirmLabel", { phrase: networkPhrase })}
+                    </label>
+                    <input
+                      id="network-restore-confirmation"
+                      className="jf-input"
+                      value={networkConfirmation}
+                      onChange={(event) => setNetworkConfirmation(event.target.value)}
+                      placeholder={networkPhrase}
+                      autoComplete="off"
+                      disabled={backupRestoring}
+                    />
+                    <p className="jf-field__hint">{t("tools.backup.networkRestoreHint")}</p>
+                  </div>
+                  <div className="jf-row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+                    <button
+                      type="button"
+                      className="jf-btn jf-btn--danger"
+                      disabled={
+                        backupRestoring ||
+                        !networkValidation.restoreAvailable ||
+                        networkConfirmation !== networkPhrase
+                      }
+                      onClick={() => void restoreNetwork()}
+                    >
+                      {backupRestoring
+                        ? t("tools.backup.networkRestoring")
+                        : t("tools.backup.networkRestore")}
+                    </button>
+                    {networkRestoreJobId && (
+                      <button
+                        type="button"
+                        className="jf-btn jf-btn--ghost"
+                        onClick={() => void cancelNetworkRestore()}
+                      >
+                        {t("tools.backup.cancel")}
+                      </button>
+                    )}
+                  </div>
+                  {backupRestoring && (
+                    <div role="status" aria-live="polite">
+                      <progress
+                        max={100}
+                        value={networkRestoreProgress}
+                        style={{ width: "100%" }}
+                      />
+                      <p className="jf-field__hint">{networkRestoreMessage}</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           )}
           {backupValidation && (
             <div className="jf-alert jf-alert--success" role="status">

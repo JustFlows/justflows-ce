@@ -4594,12 +4594,8 @@
       "scope": "Backup scope",
       "scopeSite": "Current site only",
       "scopeRoot": "Root site",
-      "scopeNetwork": "Root site and all subsites",
-      "scopeNetworkHint": "Creates one archive containing the root site and every subsite in its workspace, including sites using a separate database.",
-      "networkSites": "Network archive: {{count}} sites",
-      "networkContent": "content items",
-      "networkMedia": "media files",
-      "networkRestoreWarning": "Network restore requires a clean installation containing only its root site. Review these site addresses before restoring.",
+      "scopeNetwork": "Root site and all subsites (one file)",
+      "scopeNetworkHint": "Creates one archive with the root site and every subsite in its workspace, including sites that use a separate database. Restore it on a clean installation to rebuild the whole network.",
       "scopeSubsites": "Subsites (separate files)",
       "scopeSubsitesHint": "Creates one independent .jfbackup file for every subsite in this workspace. Restore each file to the matching subsite.",
       "restoreTarget": "Restore into",
@@ -4664,7 +4660,33 @@
       "secretSaved": "Saved — leave blank to keep",
       "secureFtp": "Require secure FTP (FTPS)",
       "settingsFailed": "Could not save destination settings",
-      "settingsSaved": "Destination settings saved"
+      "settingsSaved": "Destination settings saved",
+      "networkValidTitle": "Network backup integrity verified.",
+      "networkSummary": {
+        "one": "{site} · {date} · {count} site",
+        "other": "{site} · {date} · {count} sites"
+      },
+      "networkRecords": "Data records: {count}",
+      "networkHostname": "Address for {site}",
+      "networkHostnameHint": "Address in the backup: {hostname}",
+      "networkRootHostnameHint": "The root site keeps this installation's address.",
+      "networkMissingPlugins": "Plugins to install from trusted packages first: {list}",
+      "networkMissingThemes": "Themes to install from trusted packages first: {list}",
+      "networkBlockedNotClean": {
+        "one": "Network restore needs a clean installation. This workspace already has {count} subsite.",
+        "other": "Network restore needs a clean installation. This workspace already has {count} subsites."
+      },
+      "networkBlockedMultisite": "Turn on multisite (JF_MULTISITE=true) and restart before restoring subsites.",
+      "networkBlockedOperator": "Only a platform operator can restore a network with subsites.",
+      "networkRestoreHint": "New subsites stay offline until the root site is restored. If a step fails or you cancel, they are removed and the root site is left as it was. Accounts are not restored; each new subsite gets your administrator account.",
+      "networkConfirmationPhrase": "RESTORE NETWORK",
+      "networkRestore": "Restore network",
+      "networkRestoring": "Restoring network…",
+      "networkRestoreComplete": {
+        "one": "Network restored: {count} site. Reload the admin to see it.",
+        "other": "Network restored: {count} sites. Reload the admin to see them."
+      },
+      "networkRestoreFailed": "Could not restore the network"
     },
     "manualRestartBody": "Restart Justflows on the server, then refresh this page.",
     "manualRestartBodyContainer": "Restart the Justflows container, then refresh this page.",

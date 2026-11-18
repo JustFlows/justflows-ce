@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-import { Router } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import { rateLimit } from "express-rate-limit";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
@@ -15,6 +15,7 @@ import {
 import { exportSiteData } from "../../lib/backup/site-export.js";
 import { restoreSiteBackup } from "../../lib/backup/site-restore.js";
 import {
+  buildNetworkBackup,
   buildSubsiteBackups,
   withBackupSiteDatabase,
   workspaceRestoreTargets,
@@ -26,7 +27,18 @@ import {
   enqueueAutomaticBackup,
   saveBackupSchedule,
 } from "../../lib/backup/scheduled-backups.js";
-import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
+import { isInstallationRootRequest, isPlatformOperator } from "../../lib/tenancy/access.js";
+import {
+  isNetworkBackup,
+  MAX_NETWORK_BACKUP_BYTES,
+  openNetworkBackup,
+} from "../../lib/backup/network-archive.js";
+import {
+  networkRestoreTargetState,
+  restoreNetworkBackup,
+  summarizeNetworkBackup,
+  type NetworkRestoreResult,
+} from "../../lib/backup/network-restore.js";
 import {
   admitUpload,
   multipartLimits,
@@ -51,6 +63,13 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: multipartLimits(MAX_PORTABLE_BACKUP_BYTES),
 });
+const networkUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: multipartLimits(MAX_NETWORK_BACKUP_BYTES),
+});
+const NETWORK_RESTORE_PHRASE = "RESTORE NETWORK";
+const NETWORK_ARCHIVE_ON_SITE_ROUTE =
+  "This is a network backup. Validate and restore it from the installation root site.";
 
 interface BackupJob {
   id: string;
@@ -62,10 +81,30 @@ interface BackupJob {
   controller: AbortController;
   artifacts?: BackupArtifact[];
   error?: string;
-  scope: "site" | "subsites";
+  scope: BackupScope;
+}
+
+type BackupScope = "site" | "subsites" | "network";
+
+/**
+ * A network restore runs in the background so it can report progress and be
+ * cancelled. Only one runs per installation, because it holds the uploaded
+ * archive in memory and creates sites.
+ */
+interface NetworkRestoreJob {
+  id: string;
+  siteId: string;
+  status: "running" | "done" | "failed" | "cancelled";
+  progress: number;
+  message: string;
+  createdAt: number;
+  controller: AbortController;
+  result?: NetworkRestoreResult;
+  error?: string;
 }
 
 const backupJobs = new Map<string, BackupJob>();
+const networkRestoreJobs = new Map<string, NetworkRestoreJob>();
 const destinationSchema = z.object({
   ftp: z.object({
     enabled: z.boolean(),
@@ -94,23 +133,37 @@ const scheduleSchema = z.object({
   timeUtc: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   weekday: z.number().int().min(0).max(6),
   dayOfMonth: z.number().int().min(1).max(31),
-  scope: z.enum(["root", "subsites", "all"]),
+  scope: z.enum(["root", "subsites", "all", "network"]),
   destination: z.enum(["ftp", "email", "s3"]),
 });
 
 function cleanupBackupJobs(): void {
   const cutoff = Date.now() - 15 * 60_000;
   for (const [id, job] of backupJobs) if (job.createdAt < cutoff) backupJobs.delete(id);
+  for (const [id, job] of networkRestoreJobs)
+    if (job.status !== "running" && job.createdAt < cutoff) networkRestoreJobs.delete(id);
+}
+
+function scopeFromBody(value: unknown): BackupScope {
+  return value === "subsites" || value === "network" ? value : "site";
 }
 
 async function buildArchives(
   siteId: string,
-  scope: "site" | "subsites",
+  scope: BackupScope,
   signal?: AbortSignal,
   progress?: (completed: number, total: number) => void,
 ): Promise<BackupArtifact[]> {
   const createdAt = new Date().toISOString();
   const driver = (process.env.DB_DRIVER ?? "postgres") as "postgres" | "mysql" | "mariadb";
+  if (scope === "network") {
+    return [
+      await buildNetworkBackup(siteId, createdAt, driver, getJustflowsVersion(), {
+        signal,
+        progress,
+      }),
+    ];
+  }
   if (scope === "subsites") {
     return buildSubsiteBackups(siteId, createdAt, driver, getJustflowsVersion(), {
       signal,
@@ -143,11 +196,11 @@ async function buildArchives(
 router.post("/jobs", createLimit, requireRole("administrator"), (req, res) => {
   cleanupBackupJobs();
   const siteId = req.session!.siteId;
-  const scope = req.body?.scope === "subsites" ? "subsites" : "site";
-  if (scope === "subsites" && !isInstallationRootRequest()) {
+  const scope = scopeFromBody(req.body?.scope);
+  if (scope !== "site" && !isInstallationRootRequest()) {
     res
       .status(403)
-      .json({ error: "Subsite backups are only available from the installation root site" });
+      .json({ error: "Subsite and network backups are only available from the installation root site" });
     return;
   }
   const existing = [...backupJobs.values()].find(
@@ -171,7 +224,7 @@ router.post("/jobs", createLimit, requireRole("administrator"), (req, res) => {
   void buildArchives(siteId, scope, job.controller.signal, (completed, total) => {
     job.message =
       total > 0
-        ? `Reading ${scope === "subsites" ? "subsites" : "media"} ${completed}/${total}`
+        ? `Reading ${scope === "site" ? "media" : "sites"} ${completed}/${total}`
         : "Creating archive";
     job.progress = total > 0 ? 10 + Math.round((completed / total) * 75) : 85;
   })
@@ -395,6 +448,10 @@ router.post(
       res.status(400).json({ error: "Select a .jfbackup file" });
       return;
     }
+    if (isNetworkBackup(req.file.buffer)) {
+      res.status(400).json({ error: NETWORK_ARCHIVE_ON_SITE_ROUTE, network: true });
+      return;
+    }
     try {
       const backup = readPortableBackup(req.file.buffer);
       const tables = Object.fromEntries(
@@ -449,6 +506,10 @@ router.post(
       res.status(400).json({ error: "Select a .jfbackup file" });
       return;
     }
+    if (isNetworkBackup(req.file.buffer)) {
+      res.status(400).json({ error: NETWORK_ARCHIVE_ON_SITE_ROUTE, network: true });
+      return;
+    }
     try {
       const backup = readPortableBackup(req.file.buffer);
       const requestedTarget = String(req.body?.targetSiteId ?? req.session!.siteId);
@@ -472,5 +533,191 @@ router.post(
     }
   },
 );
+
+/**
+ * Network archives are validated and restored only from the installation root.
+ * Restoring subsites creates sites, so it also needs a platform operator.
+ */
+function requireInstallationRoot(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (!isInstallationRootRequest()) {
+    res.status(403).json({ error: "Network backups are only available on the installation root site" });
+    return;
+  }
+  next();
+}
+
+function readNetworkUpload(file: Express.Multer.File | undefined) {
+  if (!file || !file.originalname.toLowerCase().endsWith(".jfbackup")) {
+    throw new Error("Select a .jfbackup file");
+  }
+  if (!isNetworkBackup(file.buffer)) {
+    throw new Error("This is a single-site backup. Use Validate backup to restore it into one site.");
+  }
+  return openNetworkBackup(file.buffer);
+}
+
+router.post(
+  "/network/validate",
+  createLimit,
+  requireRole("administrator"),
+  requireInstallationRoot,
+  admitUpload({ name: "backup", maxBytes: MAX_NETWORK_BACKUP_BYTES, perSite: 1, global: 1 }),
+  withMultipartErrors(networkUpload.single("file")),
+  async (req, res) => {
+    try {
+      const reader = readNetworkUpload(req.file);
+      const summary = summarizeNetworkBackup(reader);
+      const target = await networkRestoreTargetState(req.session!.siteId, reader);
+      const hasSubsites = summary.sites.length > 1;
+      const operator = await isPlatformOperator(req.session!.userId);
+      auditFromRequest(req, "backup.validated", {
+        target: reader.manifest.source.rootSiteId,
+        detail: `format=network-v${reader.manifest.version}; sites=${summary.sites.length}; bytes=${req.file!.size}`,
+      });
+      res.json({
+        ok: true,
+        kind: "network",
+        summary,
+        target,
+        restoreAvailable: target.clean && (!hasSubsites || (target.multisite && operator)),
+        restoreBlockedReason: !target.clean
+          ? "notClean"
+          : hasSubsites && !target.multisite
+            ? "multisiteOff"
+            : hasSubsites && !operator
+              ? "notOperator"
+              : null,
+      });
+    } catch (error) {
+      res
+        .status(400)
+        .json({ error: error instanceof Error ? error.message : "Backup validation failed" });
+    }
+  },
+);
+
+router.post(
+  "/network/restore",
+  createLimit,
+  requireRole("administrator"),
+  requireInstallationRoot,
+  admitUpload({
+    name: "backup-restore",
+    maxBytes: MAX_NETWORK_BACKUP_BYTES,
+    perSite: 1,
+    global: 1,
+  }),
+  withMultipartErrors(networkUpload.single("file")),
+  async (req, res) => {
+    cleanupBackupJobs();
+    if (req.body?.confirmation !== NETWORK_RESTORE_PHRASE) {
+      res.status(400).json({ error: `Type ${NETWORK_RESTORE_PHRASE} to confirm` });
+      return;
+    }
+    const running = [...networkRestoreJobs.values()].find((job) => job.status === "running");
+    if (running) {
+      res.status(409).json({ error: "A network restore is already running", jobId: running.id });
+      return;
+    }
+    let hostnames: Record<string, unknown> = {};
+    try {
+      const parsed: unknown = JSON.parse(String(req.body?.hostnames ?? "{}"));
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error();
+      hostnames = parsed as Record<string, unknown>;
+    } catch {
+      res.status(400).json({ error: "Site hostnames are not valid" });
+      return;
+    }
+    let reader: ReturnType<typeof openNetworkBackup>;
+    try {
+      reader = readNetworkUpload(req.file);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Backup validation failed" });
+      return;
+    }
+    if (reader.manifest.sites.length > 1 && !(await isPlatformOperator(req.session!.userId))) {
+      res
+        .status(403)
+        .json({ error: "Only a platform operator can restore a network that creates subsites" });
+      return;
+    }
+    const job: NetworkRestoreJob = {
+      id: randomUUID(),
+      siteId: req.session!.siteId,
+      status: "running",
+      progress: 1,
+      message: "Checking the archive",
+      createdAt: Date.now(),
+      controller: new AbortController(),
+    };
+    networkRestoreJobs.set(job.id, job);
+    const sourceRoot = reader.manifest.source.rootSiteId;
+    void restoreNetworkBackup({
+      rootSiteId: job.siteId,
+      actorId: req.session!.userId,
+      reader,
+      hostnames,
+      signal: job.controller.signal,
+      progress: (completed, total, message) => {
+        job.progress = Math.max(1, Math.min(99, Math.round((completed / total) * 100)));
+        job.message = message;
+      },
+    })
+      .then((result) => {
+        job.result = result;
+        job.status = "done";
+        job.progress = 100;
+        job.message = "Network restored";
+        auditFromRequest(req, "backup.network_restored", {
+          target: job.siteId,
+          detail: `source=${sourceRoot}; sites=${result.sites.length}`,
+        });
+      })
+      .catch((error) => {
+        job.status = job.controller.signal.aborted ? "cancelled" : "failed";
+        job.error = error instanceof Error ? error.message : "Network restore failed";
+        job.message = job.error;
+        auditFromRequest(req, "backup.network_restored", {
+          target: job.siteId,
+          outcome: "failure",
+          detail: `source=${sourceRoot}; status=${job.status}`,
+        });
+      });
+    res.status(202).json({ jobId: job.id });
+  },
+);
+
+router.get("/network/restore/:id", requireRole("administrator"), requireInstallationRoot, (req, res) => {
+  cleanupBackupJobs();
+  const job = networkRestoreJobs.get(param(req.params.id));
+  if (!job || job.siteId !== req.session!.siteId) {
+    res.status(404).json({ error: "Restore job not found" });
+    return;
+  }
+  res.json({
+    status: job.status,
+    progress: job.progress,
+    message: job.message,
+    error: job.error,
+    result: job.result,
+  });
+});
+
+router.delete("/network/restore/:id", requireRole("administrator"), requireInstallationRoot, (req, res) => {
+  const job = networkRestoreJobs.get(param(req.params.id));
+  if (!job || job.siteId !== req.session!.siteId) {
+    res.status(404).json({ error: "Restore job not found" });
+    return;
+  }
+  if (job.status === "running") {
+    job.controller.abort();
+    job.message = "Cancelling…";
+  }
+  res.json({ ok: true });
+});
 
 export default router;
