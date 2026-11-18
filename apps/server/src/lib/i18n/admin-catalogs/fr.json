@@ -234,7 +234,33 @@
     "installedHeading": "Extensions installées ({count})",
     "deactivateSiteConfirm": "Désactiver « {name} » sur ce site ? Si ses options de suppression sont activées, les données, pages et articles du plugin pour ce site sont supprimés. Les tables restent pour les autres sites.",
     "deactivateFailed": "L’extension n’a pas pu être désactivée.",
-    "activateFailed": "L’extension n’a pas pu être activée."
+    "activateFailed": "L’extension n’a pas pu être activée.",
+    "trust": {
+      "states": {
+        "verified": "Vérifié par Justflows",
+        "operator": "Approuvé par vous",
+        "legacy": "Confiance transitoire",
+        "unverified": "Non vérifié"
+      },
+      "reasons": {
+        "attested": "Cette version exacte a passé la revue de Justflows. Ce n’est pas une garantie de sécurité.",
+        "operatorTrusted": "Vous avez approuvé ce build exact sur ce site.",
+        "legacy": "Installé avant l’existence des niveaux de confiance. Il continue de fonctionner comme avant jusqu’au {date}.",
+        "revoked": "Justflows a retiré cette version. Mettez-la à jour ou supprimez-la.",
+        "noDigest": "Installé depuis le code source : il n’y a donc pas de paquet à vérifier.",
+        "noAttestation": "Justflows n’a pas vérifié cette version.",
+        "attestationsUnavailable": "La liste de vérification n’a pas pu être contrôlée : rien n’est donc considéré comme vérifié.",
+        "legacyExpired": "La confiance transitoire a pris fin le {date}, et Justflows n’a pas vérifié cette version."
+      },
+      "trust": "Approuver ce build",
+      "untrust": "Ne plus approuver ce build",
+      "trustHint": "Uniquement pour du code que vous avez écrit ou vérifié vous-même. Seul le paquet exact ci-dessous est approuvé, pas les mises à jour suivantes. Quand le bac à sable des extensions sera disponible, un build approuvé s’exécutera en dehors.",
+      "untrustHint": "L’extension redevient non vérifiée.",
+      "password": "Votre mot de passe",
+      "trustConfirm": "Approuver ce build",
+      "untrustConfirm": "Ne plus approuver",
+      "failed": "Impossible de modifier le réglage de confiance."
+    }
   },
   "content": {
     "accountNotice": "Les pages de compte nécessitent une connexion. Justflows les exclut des caches, des exports, de la recherche publique et des plans du site.",
@@ -3304,6 +3330,17 @@
           "lastFailed": "La dernière sauvegarde automatique vers {destination} a échoué.",
           "overdue": "Les sauvegardes automatiques vers {destination} ne s’exécutent plus comme prévu.",
           "remediation": "Planifiez des sauvegardes vers une destination externe dans Outils, et entraînez-vous à restaurer sur une installation isolée."
+        },
+        "extensionsTrust": {
+          "title": "Vérification des extensions",
+          "unavailable": "Impossible de lire les niveaux de confiance des extensions.",
+          "clear": "Chaque extension de ce site est vérifiée par Justflows ou approuvée par vous. « Vérifié » est le résultat d’une revue, pas une garantie de sécurité.",
+          "unverified": "Extensions ni vérifiées par Justflows ni approuvées par vous : {unverified}.",
+          "legacy": "Extensions en confiance transitoire : {legacy}, jusqu’au {legacyUntil}.",
+          "remediationUnavailable": "Ouvrez Extensions et vérifiez de nouveau.",
+          "remediationClear": "Vérifiez de nouveau après avoir installé ou mis à jour une extension.",
+          "remediationUnverified": "Remplacez-les par des versions vérifiées, supprimez-les, ou approuvez votre propre build sur un site unique auto-hébergé. Aujourd’hui, chaque extension a encore un accès complet au site.",
+          "remediationLegacy": "Passez à une version vérifiée avant cette date, ou approuvez votre propre build. Aujourd’hui, chaque extension a encore un accès complet au site."
         }
       }
     },

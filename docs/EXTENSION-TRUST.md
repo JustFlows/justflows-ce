@@ -74,6 +74,57 @@ and trusted code. It does not offer or advertise a sandbox.
 If you suspect a compromised extension, follow
 [incident response](INCIDENT-RESPONSE.md).
 
+## Plugin trust states
+
+**Status:** the first part of a planned plugin sandbox
+([#270](https://github.com/JustFlows/justflows-ce/issues/270)). Trust states
+are recorded and shown today, but **every plugin still runs in the server
+process with full access**, whatever its state. The decision above still
+applies until the sandbox ships and passes its isolation tests. Nothing here is
+a sandbox.
+
+Every installed plugin has one of four states, shown on **Plugins** and counted
+in the Security Center (**Plugin verification**):
+
+| State | Meaning |
+| --- | --- |
+| Verified by Justflows | This exact release passed the [extension review](EXTENSION-REVIEW.md). Justflows lists its package id, version and archive digest in a signed attestation feed. |
+| Trusted by you | An administrator trusted this installation's exact build. |
+| Legacy trust | Installed before trust states existed and unchanged since. It keeps running as before until the grace deadline. |
+| Unverified | Everything else, including every new install and update without an attestation, and plugins installed from source. |
+
+The rules:
+
+- **Verified binds one archive digest.** It comes from the attestation feed at
+  `api.justflows.com`, signed with a release key and domain-separated from
+  release and advisory signatures. It is never read from the manifest or
+  anything else the publisher controls. An update has a new digest, so it starts
+  unverified until its own attestation appears. The digest is the one recorded
+  in the file integrity baseline at install.
+- **It fails closed.** The feed is verified again on every read. A missing,
+  tampered or expired feed verifies nothing, and an older feed never replaces a
+  newer one. The feed is refreshed every six hours.
+- **Revocation wins.** A release the signed advisory feed marks as revoked is
+  unverified, even if it is attested or trusted by you.
+- **Verified is not a guarantee of safety.** It means the release passed the
+  review requirements.
+- **Trusted by you** is for code you wrote or checked yourself. It is available
+  only on a single self-hosted site: never with `JF_MULTISITE=true`, and never
+  with `JF_OPERATOR_TRUST=off`. Only an administrator on the main site can set
+  it, with their current password. It binds the installed digest, so an update
+  is not trusted.
+- **Legacy trust** starts the first time a release with trust states runs.
+  Plugins installed before that keep it for 90 days. Any install, update or
+  reinstall after that is a new package and does not get it. Justflows will
+  issue attestations for its own plugins, so they become verified rather than
+  legacy.
+
+Every state change is audited as `extension.trust_changed`, and operator trust
+as `extension.operator_trusted` and `extension.operator_untrusted`.
+
+Once the sandbox ships, unverified plugins will run inside it. Verified
+releases, and builds you trusted, will run outside it as plugins do today.
+
 ## Update trust policy
 
 Marketplace installs and updates fail closed. Justflows downloads packages only

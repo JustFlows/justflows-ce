@@ -234,7 +234,33 @@
     "activate": "Activate",
     "deactivateSiteConfirm": "Turn off “{name}” on this site? If its delete settings are on, this site's plugin data, pages, and posts are removed. Tables stay for other sites.",
     "deactivateFailed": "The plugin could not be turned off.",
-    "activateFailed": "The plugin could not be turned on."
+    "activateFailed": "The plugin could not be turned on.",
+    "trust": {
+      "states": {
+        "verified": "Verified by Justflows",
+        "operator": "Trusted by you",
+        "legacy": "Legacy trust",
+        "unverified": "Unverified"
+      },
+      "reasons": {
+        "attested": "This exact release passed the Justflows review. That is not a guarantee of safety.",
+        "operatorTrusted": "You trusted this exact build on this site.",
+        "legacy": "Installed before trust states existed. It keeps running as before until {date}.",
+        "revoked": "Justflows revoked this release. Update or remove it.",
+        "noDigest": "Installed from source, so there is no package to verify.",
+        "noAttestation": "Justflows has not verified this release.",
+        "attestationsUnavailable": "The verification list could not be checked, so nothing is treated as verified.",
+        "legacyExpired": "Legacy trust ended on {date}, and Justflows has not verified this release."
+      },
+      "trust": "Trust this build",
+      "untrust": "Stop trusting this build",
+      "trustHint": "Only for code you wrote or checked yourself. This trusts the exact package below, not later updates. Once the plugin sandbox is available, a trusted build runs outside it.",
+      "untrustHint": "The plugin goes back to unverified.",
+      "password": "Your password",
+      "trustConfirm": "Trust this build",
+      "untrustConfirm": "Stop trusting",
+      "failed": "Could not change the trust setting."
+    }
   },
   "content": {
     "accountNotice": "Account pages require sign-in. Justflows excludes them from caches, exports, public search and sitemaps.",
@@ -3823,6 +3849,17 @@
           "lastFailed": "The last automatic backup to {destination} failed.",
           "overdue": "Automatic backups to {destination} have stopped running on schedule.",
           "remediation": "Schedule backups to an off-host destination in Tools, and rehearse a restore on an isolated installation."
+        },
+        "extensionsTrust": {
+          "title": "Plugin verification",
+          "unavailable": "Plugin trust states could not be read.",
+          "clear": "Every plugin on this site is verified by Justflows or trusted by you. Verified is a review outcome, not a guarantee of safety.",
+          "unverified": "Plugins not verified by Justflows or trusted by you: {unverified}.",
+          "legacy": "Plugins with legacy trust: {legacy}, until {legacyUntil}.",
+          "remediationUnavailable": "Open Plugins and check again.",
+          "remediationClear": "Check again after you install or update a plugin.",
+          "remediationUnverified": "Replace them with verified releases, remove them, or trust your own build on a single self-hosted site. Today every plugin still runs with full access to the site.",
+          "remediationLegacy": "Update to a verified release before that date, or trust your own build. Today every plugin still runs with full access to the site."
         }
       }
     },

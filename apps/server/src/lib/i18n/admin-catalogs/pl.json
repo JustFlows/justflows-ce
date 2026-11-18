@@ -240,7 +240,33 @@
     "activate": "Aktywuj",
     "deactivateSiteConfirm": "Wyłączyć „{name}” na tej witrynie? Jeśli ustawienia usuwania są włączone, dane, strony i wpisy wtyczki tej witryny zostaną usunięte. Tabele pozostaną dla innych witryn.",
     "deactivateFailed": "Nie udało się wyłączyć wtyczki.",
-    "activateFailed": "Nie udało się włączyć wtyczki."
+    "activateFailed": "Nie udało się włączyć wtyczki.",
+    "trust": {
+      "states": {
+        "verified": "Zweryfikowana przez Justflows",
+        "operator": "Zaufana przez Ciebie",
+        "legacy": "Zaufanie przejściowe",
+        "unverified": "Niezweryfikowana"
+      },
+      "reasons": {
+        "attested": "Dokładnie ta wersja przeszła przegląd Justflows. Nie jest to gwarancja bezpieczeństwa.",
+        "operatorTrusted": "Ta konkretna kompilacja została przez Ciebie oznaczona jako zaufana w tej witrynie.",
+        "legacy": "Zainstalowana przed wprowadzeniem poziomów zaufania. Do {date} działa tak jak dotąd.",
+        "revoked": "Justflows wycofało tę wersję. Zaktualizuj ją lub usuń.",
+        "noDigest": "Zainstalowana z kodu źródłowego, więc nie ma pakietu do weryfikacji.",
+        "noAttestation": "Justflows nie zweryfikowało tej wersji.",
+        "attestationsUnavailable": "Nie udało się sprawdzić listy weryfikacji, więc nic nie jest uznawane za zweryfikowane.",
+        "legacyExpired": "Zaufanie przejściowe wygasło {date}, a Justflows nie zweryfikowało tej wersji."
+      },
+      "trust": "Zaufaj tej kompilacji",
+      "untrust": "Przestań ufać tej kompilacji",
+      "trustHint": "Tylko dla kodu, który napisałeś lub sprawdziłeś samodzielnie. Zaufanie obejmuje dokładnie poniższy pakiet, a nie późniejsze aktualizacje. Gdy piaskownica wtyczek będzie dostępna, zaufana kompilacja będzie działać poza nią.",
+      "untrustHint": "Wtyczka wraca do stanu niezweryfikowanej.",
+      "password": "Twoje hasło",
+      "trustConfirm": "Zaufaj tej kompilacji",
+      "untrustConfirm": "Przestań ufać",
+      "failed": "Nie udało się zmienić ustawienia zaufania."
+    }
   },
   "content": {
     "accountNotice": "Strony konta wymagają logowania. Justflows wyklucza je z pamięci podręcznej, eksportów, wyszukiwania publicznego i map witryny.",
@@ -3947,6 +3973,17 @@
           "lastFailed": "Ostatnia automatyczna kopia zapasowa do {destination} nie powiodła się.",
           "overdue": "Automatyczne kopie zapasowe do {destination} przestały działać zgodnie z harmonogramem.",
           "remediation": "Zaplanuj kopie zapasowe do zewnętrznego miejsca w Narzędziach i przećwicz przywracanie na odizolowanej instalacji."
+        },
+        "extensionsTrust": {
+          "title": "Weryfikacja wtyczek",
+          "unavailable": "Nie udało się odczytać poziomów zaufania wtyczek.",
+          "clear": "Każda wtyczka w tej witrynie jest zweryfikowana przez Justflows lub zaufana przez Ciebie. „Zweryfikowana” to wynik przeglądu, a nie gwarancja bezpieczeństwa.",
+          "unverified": "Wtyczki niezweryfikowane przez Justflows i niezaufane przez Ciebie: {unverified}.",
+          "legacy": "Wtyczki z zaufaniem przejściowym: {legacy}, do {legacyUntil}.",
+          "remediationUnavailable": "Otwórz Wtyczki i sprawdź ponownie.",
+          "remediationClear": "Sprawdź ponownie po zainstalowaniu lub zaktualizowaniu wtyczki.",
+          "remediationUnverified": "Zastąp je zweryfikowanymi wersjami, usuń je albo zaufaj własnej kompilacji w pojedynczej witrynie na własnym serwerze. Obecnie każda wtyczka nadal ma pełny dostęp do witryny.",
+          "remediationLegacy": "Przed tą datą zaktualizuj do zweryfikowanej wersji albo zaufaj własnej kompilacji. Obecnie każda wtyczka nadal ma pełny dostęp do witryny."
         }
       }
     },

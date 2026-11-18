@@ -234,7 +234,33 @@
     "installedHeading": "Installierte Plugins ({count})",
     "deactivateSiteConfirm": "„{name}“ auf dieser Website ausschalten? Wenn die Löscheinstellungen aktiv sind, werden die Plugin-Daten, Seiten und Beiträge dieser Website entfernt. Tabellen bleiben für andere Websites erhalten.",
     "deactivateFailed": "Das Plugin konnte nicht ausgeschaltet werden.",
-    "activateFailed": "Das Plugin konnte nicht eingeschaltet werden."
+    "activateFailed": "Das Plugin konnte nicht eingeschaltet werden.",
+    "trust": {
+      "states": {
+        "verified": "Von Justflows verifiziert",
+        "operator": "Von Ihnen vertraut",
+        "legacy": "Übergangsvertrauen",
+        "unverified": "Nicht verifiziert"
+      },
+      "reasons": {
+        "attested": "Genau diese Version hat die Prüfung durch Justflows bestanden. Das ist keine Garantie für Sicherheit.",
+        "operatorTrusted": "Sie haben genau diesem Build auf dieser Website vertraut.",
+        "legacy": "Installiert, bevor es Vertrauensstufen gab. Es läuft bis {date} wie bisher weiter.",
+        "revoked": "Justflows hat diese Version zurückgezogen. Aktualisieren oder entfernen Sie sie.",
+        "noDigest": "Aus dem Quellcode installiert, daher gibt es kein Paket zum Verifizieren.",
+        "noAttestation": "Justflows hat diese Version nicht verifiziert.",
+        "attestationsUnavailable": "Die Verifizierungsliste konnte nicht geprüft werden, daher gilt nichts als verifiziert.",
+        "legacyExpired": "Das Übergangsvertrauen endete am {date}, und Justflows hat diese Version nicht verifiziert."
+      },
+      "trust": "Diesem Build vertrauen",
+      "untrust": "Diesem Build nicht mehr vertrauen",
+      "trustHint": "Nur für Code, den Sie selbst geschrieben oder geprüft haben. Vertraut wird genau dem Paket unten, nicht späteren Updates. Sobald die Plugin-Sandbox verfügbar ist, läuft ein vertrauter Build außerhalb davon.",
+      "untrustHint": "Das Plugin gilt wieder als nicht verifiziert.",
+      "password": "Ihr Passwort",
+      "trustConfirm": "Diesem Build vertrauen",
+      "untrustConfirm": "Nicht mehr vertrauen",
+      "failed": "Die Vertrauenseinstellung konnte nicht geändert werden."
+    }
   },
   "content": {
     "accountNotice": "Kontoseiten erfordern eine Anmeldung. Justflows schließt sie von Caches, Exporten, öffentlichen Suchergebnissen und Sitemaps aus.",
@@ -3304,6 +3330,17 @@
           "lastFailed": "Das letzte automatische Backup nach {destination} ist fehlgeschlagen.",
           "overdue": "Automatische Backups nach {destination} laufen nicht mehr nach Plan.",
           "remediation": "Planen Sie unter Tools Backups an ein externes Ziel, und üben Sie eine Wiederherstellung auf einer isolierten Installation."
+        },
+        "extensionsTrust": {
+          "title": "Plugin-Verifizierung",
+          "unavailable": "Die Vertrauensstufen der Plugins konnten nicht gelesen werden.",
+          "clear": "Jedes Plugin auf dieser Website ist von Justflows verifiziert oder von Ihnen vertraut. Verifiziert ist ein Prüfergebnis, keine Garantie für Sicherheit.",
+          "unverified": "Plugins, die weder von Justflows verifiziert noch von Ihnen vertraut sind: {unverified}.",
+          "legacy": "Plugins mit Übergangsvertrauen: {legacy}, bis {legacyUntil}.",
+          "remediationUnavailable": "Öffnen Sie Plugins und prüfen Sie erneut.",
+          "remediationClear": "Prüfen Sie erneut, nachdem Sie ein Plugin installiert oder aktualisiert haben.",
+          "remediationUnverified": "Ersetzen Sie sie durch verifizierte Versionen, entfernen Sie sie oder vertrauen Sie Ihrem eigenen Build auf einer einzelnen selbst gehosteten Website. Derzeit läuft jedes Plugin noch mit vollem Zugriff auf die Website.",
+          "remediationLegacy": "Aktualisieren Sie vor diesem Datum auf eine verifizierte Version oder vertrauen Sie Ihrem eigenen Build. Derzeit läuft jedes Plugin noch mit vollem Zugriff auf die Website."
         }
       }
     },

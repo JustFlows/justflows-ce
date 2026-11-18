@@ -135,6 +135,7 @@ export async function syncSubsitePluginCopies(siteId: string): Promise<boolean> 
         pluginId: root.plugin_id,
         version: root.version,
         manifest: root.manifest,
+        copyOfInstalledRow: true,
       });
       changed = true;
     }
@@ -246,6 +247,7 @@ export async function listVisiblePlugins(siteId: string): Promise<PluginDto[]> {
         pluginId: row.plugin_id,
         version: row.version,
         manifest: row.manifest,
+        copyOfInstalledRow: true,
       });
     }
     const dto = pluginToDto(
@@ -304,6 +306,7 @@ export async function prepareSubsitedActivation(
         pluginId: rootPlugin.plugin_id,
         version: rootPlugin.version,
         manifest: rootPlugin.manifest,
+        copyOfInstalledRow: true,
       });
     }
     return { ok: true };
@@ -315,6 +318,7 @@ export async function prepareSubsitedActivation(
       version: rootPlugin.version,
       manifest: rootPlugin.manifest,
       status: "inactive",
+      copyOfInstalledRow: true,
     });
   } catch (err) {
     if (err instanceof QuotaRefusalError) return { ok: false, error: err.message };
