@@ -234,7 +234,14 @@
     "installedHeading": "Plugins instalados ({count})",
     "deactivateSiteConfirm": "¿Desactivar “{name}” en este sitio? Si sus opciones de borrado están activadas, se eliminan los datos, páginas y entradas del plugin de este sitio. Las tablas se conservan para otros sitios.",
     "deactivateFailed": "No se pudo desactivar el plugin.",
-    "activateFailed": "No se pudo activar el plugin."
+    "activateFailed": "No se pudo activar el plugin.",
+    "check": "Comprobar",
+    "checking": "Comprobando…",
+    "checkHint": "Ejecutar el comprobador de extensiones en los archivos instalados de este plugin",
+    "checkClean": "El comprobador de extensiones no encontró problemas.",
+    "checkSummary": "Comprobador de extensiones: {errors} errores, {warnings} advertencias, {notes} notas",
+    "checkFailed": "No se pudo comprobar el plugin",
+    "checkHelp": "Detalles"
   },
   "content": {
     "accountNotice": "Las páginas de cuenta requieren iniciar sesión. Justflows las excluye de las cachés, exportaciones, búsquedas públicas y mapas del sitio.",

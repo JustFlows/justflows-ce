@@ -1,4 +1,6 @@
 import { Router } from "express";
+import fs from "node:fs";
+import path from "node:path";
 import { retainPackageArchive } from "../../lib/backup/package-archives.js";
 import { requireRole, requireSession } from "../../middleware/auth.js";
 import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
@@ -425,6 +427,46 @@ router.get("/:id", requireRole("administrator", "editor"), async (req, res) => {
     return;
   }
   res.json({ plugin: withoutVersionOffRoot(pluginToDto(plugin)) });
+});
+
+/** Running the extension checker reads every file of a package. */
+const packageCheckLimit = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false });
+
+/**
+ * Run the extension checker on an installed plugin's files, the same rules as
+ * `justflows check` (justflows-ce#97). Read-only, and only for folders inside
+ * the installation's package directories.
+ */
+router.get("/:id/check", packageCheckLimit, requireRole("administrator"), async (req, res) => {
+  if (!isInstallationRootRequest()) {
+    res.status(403).json({ error: "Plugins are checked on the main site." });
+    return;
+  }
+  const plugin = await getPlugin(req.session!.siteId, param(req.params.id));
+  if (!plugin) {
+    res.status(404).json({ error: "Plugin not found" });
+    return;
+  }
+  const installed = typeof plugin.manifest.installedPath === "string" ? plugin.manifest.installedPath : "";
+  const bundled = typeof plugin.manifest.bundledPath === "string" ? plugin.manifest.bundledPath : "";
+  const { pluginsDir } = await import("../../lib/plugins/plugins-db.js");
+  const within = (dir: string, base: string) => {
+    const relative = path.relative(path.resolve(base), path.resolve(dir));
+    return Boolean(relative) && !relative.startsWith("..") && !path.isAbsolute(relative);
+  };
+  const dir = installed && within(installed, packagesInstalledDir()) ? installed : bundled && within(bundled, pluginsDir()) ? bundled : "";
+  if (!dir || !fs.existsSync(dir)) {
+    res.status(404).json({ error: "The plugin's files are not on this server" });
+    return;
+  }
+  try {
+    const { checkPackage } = await import("@justflows/check");
+    const report = await checkPackage(dir, { coreVersion: getJustflowsVersion(), asPackage: dir === installed });
+    noStore(res);
+    res.json({ report: { ...report, target: { ...report.target, path: plugin.plugin_id } } });
+  } catch (err) {
+    sendServerError(res, "plugins", err);
+  }
 });
 
 router.get("/:id/settings", requireRole("administrator"), async (req, res) => {

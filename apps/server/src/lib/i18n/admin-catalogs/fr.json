@@ -234,7 +234,14 @@
     "installedHeading": "Extensions installées ({count})",
     "deactivateSiteConfirm": "Désactiver « {name} » sur ce site ? Si ses options de suppression sont activées, les données, pages et articles du plugin pour ce site sont supprimés. Les tables restent pour les autres sites.",
     "deactivateFailed": "L’extension n’a pas pu être désactivée.",
-    "activateFailed": "L’extension n’a pas pu être activée."
+    "activateFailed": "L’extension n’a pas pu être activée.",
+    "check": "Vérifier",
+    "checking": "Vérification…",
+    "checkHint": "Lancer le vérificateur d'extensions sur les fichiers installés de cette extension",
+    "checkClean": "Le vérificateur d'extensions n'a trouvé aucun problème.",
+    "checkSummary": "Vérificateur d'extensions : {errors} erreurs, {warnings} avertissements, {notes} remarques",
+    "checkFailed": "Impossible de vérifier l'extension",
+    "checkHelp": "Détails"
   },
   "content": {
     "accountNotice": "Les pages de compte nécessitent une connexion. Justflows les exclut des caches, des exports, de la recherche publique et des plans du site.",

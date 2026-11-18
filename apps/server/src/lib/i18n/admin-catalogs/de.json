@@ -234,7 +234,14 @@
     "installedHeading": "Installierte Plugins ({count})",
     "deactivateSiteConfirm": "„{name}“ auf dieser Website ausschalten? Wenn die Löscheinstellungen aktiv sind, werden die Plugin-Daten, Seiten und Beiträge dieser Website entfernt. Tabellen bleiben für andere Websites erhalten.",
     "deactivateFailed": "Das Plugin konnte nicht ausgeschaltet werden.",
-    "activateFailed": "Das Plugin konnte nicht eingeschaltet werden."
+    "activateFailed": "Das Plugin konnte nicht eingeschaltet werden.",
+    "check": "Prüfen",
+    "checking": "Wird geprüft…",
+    "checkHint": "Die Erweiterungsprüfung auf die installierten Dateien dieses Plugins anwenden",
+    "checkClean": "Die Erweiterungsprüfung hat keine Probleme gefunden.",
+    "checkSummary": "Erweiterungsprüfung: {errors} Fehler, {warnings} Warnungen, {notes} Hinweise",
+    "checkFailed": "Das Plugin konnte nicht geprüft werden",
+    "checkHelp": "Details"
   },
   "content": {
     "accountNotice": "Kontoseiten erfordern eine Anmeldung. Justflows schließt sie von Caches, Exporten, öffentlichen Suchergebnissen und Sitemaps aus.",

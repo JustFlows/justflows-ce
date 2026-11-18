@@ -41,6 +41,7 @@ const PACKAGE_BUILD_ORDER = [
   "packages/database",
   "packages/auth",
   "packages/installer",
+  "packages/check",
   "packages/plugin-api",
   "packages/content",
   "packages/media",

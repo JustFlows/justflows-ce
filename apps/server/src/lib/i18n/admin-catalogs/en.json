@@ -234,7 +234,14 @@
     "activate": "Activate",
     "deactivateSiteConfirm": "Turn off “{name}” on this site? If its delete settings are on, this site's plugin data, pages, and posts are removed. Tables stay for other sites.",
     "deactivateFailed": "The plugin could not be turned off.",
-    "activateFailed": "The plugin could not be turned on."
+    "activateFailed": "The plugin could not be turned on.",
+    "check": "Check",
+    "checking": "Checking…",
+    "checkHint": "Run the extension checker on this plugin's installed files",
+    "checkClean": "The extension checker found no problems.",
+    "checkSummary": "Extension checker: {errors} errors, {warnings} warnings, {notes} notes",
+    "checkFailed": "Could not check the plugin",
+    "checkHelp": "Details"
   },
   "content": {
     "accountNotice": "Account pages require sign-in. Justflows excludes them from caches, exports, public search and sitemaps.",

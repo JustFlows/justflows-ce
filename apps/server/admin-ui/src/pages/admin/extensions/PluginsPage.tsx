@@ -26,6 +26,19 @@ interface Plugin {
   multisiteEnabled?: boolean;
 }
 
+/** The extension checker's report for one installed plugin (justflows-ce#97). */
+interface CheckReport {
+  rulesetVersion: string;
+  counts: { error: number; warning: number; info: number };
+  findings: Array<{ rule: string; severity: "error" | "warning" | "info"; message: string; file?: string; line?: number; help: string }>;
+}
+
+const SEVERITY_VARIANT: Record<CheckReport["findings"][number]["severity"], string> = {
+  error: " jf-badge--error",
+  warning: " jf-badge--warn",
+  info: " jf-badge--info",
+};
+
 const STATUS_VARIANT: Record<Plugin["status"], string> = {
   active: " jf-badge--ok",
   inactive: "",
@@ -47,10 +60,23 @@ export default function PluginsPage() {
   const [uploadSuccess, setUploadSuccess] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [checks, setChecks] = useState<Record<string, { loading?: boolean; report?: CheckReport; error?: string }>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Installing, activating, or deleting a plugin changes which admin pages exist.
   const { refresh: refreshMenu } = usePluginMenu();
   const updates = useExtensionUpdates(canManage);
+
+  async function checkPlugin(id: string) {
+    setChecks((current) => ({ ...current, [id]: { loading: true } }));
+    try {
+      const res = await fetch(`/api/plugins/${encodeURIComponent(id)}/check`, { cache: "no-store" });
+      const data = (await res.json()) as { report?: CheckReport; error?: string };
+      if (!res.ok || !data.report) throw new Error(data.error ?? t("plugins.checkFailed"));
+      setChecks((current) => ({ ...current, [id]: { report: data.report } }));
+    } catch (error) {
+      setChecks((current) => ({ ...current, [id]: { error: error instanceof Error ? error.message : String(error) } }));
+    }
+  }
 
   useEffect(() => {
     fetch("/api/plugins?site-features=1", { cache: "no-store" })
@@ -270,6 +296,41 @@ export default function PluginsPage() {
                     <p className="jf-meta">{t("plugins.multisiteHint")}</p>
                   )}
                   {canManage && installationRoot && <ExtensionAutoUpdateToggle state={updates} type="plugin" id={p.id} />}
+                  {checks[p.id]?.error && (
+                    <div className="jf-alert jf-alert--error" role="alert">{checks[p.id]!.error}</div>
+                  )}
+                  {checks[p.id]?.report && (
+                    <div role="status" className="jf-stack" style={{ gap: "0.25rem" }}>
+                      <p className="jf-meta">
+                        {checks[p.id]!.report!.findings.length === 0
+                          ? t("plugins.checkClean")
+                          : t("plugins.checkSummary", {
+                              errors: checks[p.id]!.report!.counts.error,
+                              warnings: checks[p.id]!.report!.counts.warning,
+                              notes: checks[p.id]!.report!.counts.info,
+                            })}
+                      </p>
+                      {checks[p.id]!.report!.findings.length > 0 && (
+                        <ul className="jf-stack" style={{ listStyle: "none", padding: 0, gap: "0.25rem" }}>
+                          {checks[p.id]!.report!.findings.map((finding, index) => (
+                            <li key={index}>
+                              <span className={`jf-badge${SEVERITY_VARIANT[finding.severity]}`}>{finding.rule}</span>{" "}
+                              {finding.message}
+                              {finding.file && (
+                                <span className="jf-meta">
+                                  {" "}
+                                  · <code className="jf-code">{finding.file}{finding.line ? `:${finding.line}` : ""}</code>
+                                </span>
+                              )}{" "}
+                              <a href={finding.help} target="_blank" rel="noreferrer">
+                                {t("plugins.checkHelp")}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {canManage && (
                   <div className="jf-row" style={{ flexWrap: "nowrap" }}>
@@ -295,6 +356,16 @@ export default function PluginsPage() {
                       <Link className="jf-btn jf-btn--ghost" to={`/admin/plugins/${p.id}/settings`}>
                         {t("plugins.settingsLink")}
                       </Link>
+                    )}
+                    {installationRoot && (
+                      <button
+                        className="jf-btn jf-btn--ghost"
+                        disabled={checks[p.id]?.loading === true}
+                        title={t("plugins.checkHint")}
+                        onClick={() => void checkPlugin(p.id)}
+                      >
+                        {checks[p.id]?.loading ? t("plugins.checking") : t("plugins.check")}
+                      </button>
                     )}
                     <button className="jf-btn jf-btn--ghost" onClick={() => void togglePlugin(p)}>
                       {p.status === "active" ? t("plugins.deactivate") : t("plugins.activate")}
