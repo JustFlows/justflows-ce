@@ -57,7 +57,8 @@
     "storage": "Stockage",
     "taxonomies": "Catégories et étiquettes",
     "securityPasskeys": "Clés d’accès",
-    "dataRequests": "Demandes de données"
+    "dataRequests": "Demandes de données",
+    "securitySignIn": "Connexion"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -2398,7 +2399,10 @@
       "recoveryLabel": "Code de récupération",
       "recoveryHint": "Votre rôle se connecte avec une clé d’accès. Si vous l’avez perdue, saisissez l’un de vos codes de récupération.",
       "or": "ou",
-      "passkeyHint": "Avec votre empreinte, votre visage, le verrouillage de l’écran ou une clé de sécurité."
+      "passkeyHint": "Avec votre empreinte, votre visage, le verrouillage de l’écran ou une clé de sécurité.",
+      "continueWith": "Continuer avec {name}",
+      "federatedFailed": "L’authentification unique n’a pas fonctionné. Réessayez, ou connectez-vous avec votre mot de passe.",
+      "federatedStepUp": "Votre fournisseur de connexion a confirmé votre identité. Terminez avec votre propre second facteur."
     },
     "passwordLabel": "Mot de passe",
     "signInCta": "Connexion →",
@@ -3432,6 +3436,20 @@
           "regenerateHint": "Les nouveaux codes remplacent tous ceux qui n’ont pas servi.",
           "error": "Impossible de créer de nouveaux codes de récupération."
         }
+      },
+      "mfaRequired": {
+        "title": "Activez la double authentification",
+        "body": "Votre rôle doit utiliser une application d’authentification ou une clé d’accès sur ce site. Tant que vous n’en ajoutez pas, le reste de l’administration est indisponible.",
+        "action": "La configurer maintenant"
+      },
+      "identities": {
+        "title": "Authentification unique",
+        "intro": "Fournisseurs de connexion liés à votre compte. Délier un fournisseur supprime le lien ; la prochaine connexion par ce fournisseur le recrée si votre adresse vérifiée correspond toujours.",
+        "linked": "lié le {date}",
+        "lastUsed": "utilisé le {date}",
+        "unlink": "Délier",
+        "unlinked": "Lien supprimé.",
+        "unlinkError": "Impossible de supprimer le lien."
       }
     },
     "adminPath": {
@@ -3804,6 +3822,46 @@
         "extraOriginsHint": "Une origine https par ligne, comme https://www.example.com. Chacune doit se trouver dans le RP ID.",
         "warnTitle": "Changer le RP ID rend les clés d’accès existantes inutilisables",
         "warn": "Une clé d’accès appartient au RP ID pour lequel elle a été créée. Après un changement, les personnes se connectent avec leur mot de passe et un code de récupération, puis ajoutent une nouvelle clé d’accès."
+      }
+    },
+    "signIn": {
+      "title": "Connexion",
+      "subtitle": "Qui doit utiliser un second facteur, et quels fournisseurs d’authentification unique l’équipe peut utiliser.",
+      "errors": {
+        "loadFailed": "Impossible de charger les réglages de connexion.",
+        "saveFailed": "Impossible d’enregistrer les réglages de connexion."
+      },
+      "mfa": {
+        "title": "Second facteur obligatoire",
+        "hint": "Les personnes ayant ces rôles doivent utiliser une application d’authentification ou une clé d’accès. Tant qu’elles n’en ont pas ajouté, elles peuvent seulement en configurer une, changer leur mot de passe ou se déconnecter.",
+        "legend": "Exiger un second facteur pour",
+        "warnTitle": "Vérifiez d’abord votre propre compte",
+        "warn": "Les comptes ayant ces rôles sans second facteur perdent l’accès à l’administration jusqu’à ce qu’ils en ajoutent un, et leur dernier facteur ne peut pas être supprimé tant que cette règle s’applique."
+      },
+      "providers": {
+        "title": "Authentification unique (OpenID Connect)",
+        "hint": "L’équipe peut se connecter via votre fournisseur d’identité. Seuls des comptes existants sont connectés : par l’identifiant du compte chez le fournisseur une fois liés, ou la première fois par une adresse e-mail vérifiée. Aucun compte n’est créé, et la connexion par mot de passe reste disponible.",
+        "none": "Aucun fournisseur pour l’instant.",
+        "newProvider": "Nouveau fournisseur",
+        "enabled": "Afficher sur la page de connexion de l’équipe",
+        "name": "Libellé du bouton",
+        "nameHint": "Affiché sous la forme « Continuer avec … ».",
+        "id": "Identifiant",
+        "callback": "URI de redirection à enregistrer chez le fournisseur :",
+        "issuer": "URL de l’émetteur",
+        "issuerHint": "L’émetteur (issuer) du fournisseur ; son /.well-known/openid-configuration est lu à partir d’ici. Doit utiliser https.",
+        "clientId": "Identifiant client",
+        "clientSecret": "Secret client",
+        "secretStored": "Enregistré — laissez vide pour le conserver",
+        "clientSecretHint": "Enregistré chiffré. Laissez vide pour un client public.",
+        "scopes": "Scopes",
+        "allowedDomains": "Domaines e-mail autorisés",
+        "allowedDomainsHint": "Un par ligne. Vide autorise toute adresse vérifiée correspondant à un compte existant.",
+        "mfaAmr": "Valeurs amr qui comptent comme MFA",
+        "mfaAcr": "Valeurs acr qui comptent comme MFA",
+        "mfaHint": "Si le jeton d’identité du fournisseur prouve l’une de ces valeurs, la connexion compte comme une double authentification. Sinon, les personnes qui ont leur propre second facteur ici devront aussi le fournir.",
+        "remove": "Retirer le fournisseur",
+        "add": "Ajouter un fournisseur"
       }
     }
   },

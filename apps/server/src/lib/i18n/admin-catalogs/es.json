@@ -57,7 +57,8 @@
     "storage": "Almacenamiento",
     "taxonomies": "Categorías y etiquetas",
     "securityPasskeys": "Llaves de acceso",
-    "dataRequests": "Solicitudes de datos"
+    "dataRequests": "Solicitudes de datos",
+    "securitySignIn": "Inicio de sesión"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -2398,7 +2399,10 @@
       "recoveryLabel": "Código de recuperación",
       "recoveryHint": "Tu rol inicia sesión con una llave de acceso. Si la perdiste, escribe uno de tus códigos de recuperación.",
       "or": "o",
-      "passkeyHint": "Con tu huella, tu cara, el bloqueo de pantalla o una llave de seguridad."
+      "passkeyHint": "Con tu huella, tu cara, el bloqueo de pantalla o una llave de seguridad.",
+      "continueWith": "Continuar con {name}",
+      "federatedFailed": "El inicio de sesión único no ha funcionado. Inténtalo de nuevo o inicia sesión con tu contraseña.",
+      "federatedStepUp": "Tu proveedor de inicio de sesión ha confirmado tu identidad. Termina con tu propio segundo factor."
     },
     "passwordLabel": "Contraseña",
     "signInCta": "Iniciar sesión →",
@@ -3432,6 +3436,20 @@
           "regenerateHint": "Los códigos nuevos sustituyen a todos los que no se han usado.",
           "error": "No se pudieron crear nuevos códigos de recuperación."
         }
+      },
+      "mfaRequired": {
+        "title": "Activa la verificación en dos pasos",
+        "body": "Tu rol debe usar una app de autenticación o una llave de acceso en este sitio. Hasta que añadas una, el resto del panel no estará disponible.",
+        "action": "Configurarla ahora"
+      },
+      "identities": {
+        "title": "Inicio de sesión único",
+        "intro": "Proveedores de inicio de sesión vinculados a tu cuenta. Al desvincular uno se elimina el vínculo; el siguiente inicio de sesión con ese proveedor lo vuelve a crear si tu dirección verificada sigue coincidiendo.",
+        "linked": "vinculado el {date}",
+        "lastUsed": "usado por última vez el {date}",
+        "unlink": "Desvincular",
+        "unlinked": "Desvinculado.",
+        "unlinkError": "No se pudo desvincular."
       }
     },
     "adminPath": {
@@ -3804,6 +3822,46 @@
         "extraOriginsHint": "Un origen https por línea, como https://www.example.com. Cada uno debe estar dentro del RP ID.",
         "warnTitle": "Cambiar el RP ID deja inservibles las llaves de acceso existentes",
         "warn": "Una llave de acceso pertenece al RP ID para el que se creó. Tras un cambio, hay que iniciar sesión con la contraseña y un código de recuperación y después añadir una nueva llave de acceso."
+      }
+    },
+    "signIn": {
+      "title": "Inicio de sesión",
+      "subtitle": "Quién debe usar un segundo factor y qué proveedores de inicio de sesión único puede usar el equipo.",
+      "errors": {
+        "loadFailed": "No se pudieron cargar los ajustes de inicio de sesión.",
+        "saveFailed": "No se pudieron guardar los ajustes de inicio de sesión."
+      },
+      "mfa": {
+        "title": "Segundo factor obligatorio",
+        "hint": "Las personas con estos roles deben usar una app de autenticación o una llave de acceso. Hasta que añadan una, solo pueden configurarla, cambiar su contraseña o cerrar sesión.",
+        "legend": "Exigir un segundo factor para",
+        "warnTitle": "Revisa primero tu propia cuenta",
+        "warn": "Las cuentas con estos roles sin segundo factor pierden el acceso al panel hasta que añadan uno, y no pueden eliminar su último factor mientras esta regla se aplique."
+      },
+      "providers": {
+        "title": "Inicio de sesión único (OpenID Connect)",
+        "hint": "El equipo puede iniciar sesión con tu proveedor de identidad. Solo se inicia sesión en cuentas que ya existen: por el ID de cuenta del proveedor una vez vinculadas, o la primera vez por un correo verificado. No se crea ninguna cuenta y el inicio de sesión con contraseña sigue funcionando.",
+        "none": "Aún no hay proveedores.",
+        "newProvider": "Nuevo proveedor",
+        "enabled": "Mostrar en la página de acceso del equipo",
+        "name": "Texto del botón",
+        "nameHint": "Se muestra como «Continuar con …».",
+        "id": "ID",
+        "callback": "URI de redirección que debes registrar en el proveedor:",
+        "issuer": "URL del emisor",
+        "issuerHint": "El emisor (issuer) del proveedor; su /.well-known/openid-configuration se lee desde aquí. Debe usar https.",
+        "clientId": "ID de cliente",
+        "clientSecret": "Secreto de cliente",
+        "secretStored": "Guardado: déjalo vacío para conservarlo",
+        "clientSecretHint": "Se guarda cifrado. Déjalo vacío para un cliente público.",
+        "scopes": "Scopes",
+        "allowedDomains": "Dominios de correo permitidos",
+        "allowedDomainsHint": "Uno por línea. Vacío permite cualquier dirección verificada que coincida con una cuenta existente.",
+        "mfaAmr": "Valores amr que cuentan como MFA",
+        "mfaAcr": "Valores acr que cuentan como MFA",
+        "mfaHint": "Si el token de ID del proveedor demuestra uno de estos valores, el inicio de sesión cuenta como de dos factores. Si no, a quienes tengan aquí su propio segundo factor también se les pedirá.",
+        "remove": "Eliminar proveedor",
+        "add": "Añadir proveedor"
       }
     }
   },

@@ -212,6 +212,18 @@ export default function AdminShell() {
             </div>
           </div>
         ) : null}
+        {session?.mfaEnrollmentRequired && !session.passkeyEnrollmentRequired && !pathname.endsWith("/security/account") ? (
+          <div className="jf-banner jf-banner--warn" role="status">
+            <span className="jf-banner__icon" aria-hidden="true">!</span>
+            <div>
+              <div className="jf-banner__title">{t("security.account.mfaRequired.title")}</div>
+              <div className="jf-banner__sub">
+                {t("security.account.mfaRequired.body")}{" "}
+                <Link to="/admin/security/account">{t("security.account.mfaRequired.action")}</Link>
+              </div>
+            </div>
+          </div>
+        ) : null}
         {/* One page is already the sidebar item — don't repeat it as a top bar. */}
         {activeDomain && activeDomain.items.length > 1 && <DomainSubnav domain={activeDomain} />}
         {/* The shell stays on screen while the next page's chunk loads. */}
