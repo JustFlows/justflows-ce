@@ -484,3 +484,27 @@ export async function recordTrustTransitions(
   }
   return changes;
 }
+
+/**
+ * The trust state of a plugin the runtime is about to load, from its stored
+ * manifest. A plugin with no stored row (a source checkout scanned from the
+ * plugins folder) is never legacy.
+ */
+export async function trustForInstalledManifest(pluginId: string, version: string, manifest: Record<string, unknown>, hasRow: boolean, now = new Date()): Promise<PluginTrust> {
+  const plugin = await identityOf({ plugin_id: pluginId, version, manifest });
+  const [policy, attestations, allowed, siteId] = await Promise.all([getPluginTrustPolicy(), loadAttestationFeed(), operatorTrustAllowed(), trustSiteId()]);
+  const revoked = siteId ? await revokedPluginVersions(siteId, [{ id: pluginId, version }]) : new Set<string>();
+  return resolvePluginTrust({
+    plugin: hasRow ? plugin : { ...plugin, recordedSinceTrust: true },
+    attestations,
+    revoked: revoked.has(`${pluginId}@${version}`),
+    policy,
+    operatorTrustAllowed: allowed,
+    now,
+  });
+}
+
+/** `JF_PLUGIN_SANDBOX=on` runs unverified plugins in the sandbox. Off by default until it is complete. */
+export function pluginSandboxMode(): "on" | "off" {
+  return process.env.JF_PLUGIN_SANDBOX === "on" ? "on" : "off";
+}

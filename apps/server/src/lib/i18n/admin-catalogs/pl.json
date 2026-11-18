@@ -275,7 +275,9 @@
       "password": "Twoje hasło",
       "trustConfirm": "Zaufaj tej kompilacji",
       "untrustConfirm": "Przestań ufać",
-      "failed": "Nie udało się zmienić ustawienia zaufania."
+      "failed": "Nie udało się zmienić ustawienia zaufania.",
+      "sandboxed": "Działa w piaskownicy wtyczek, z ograniczonym dostępem do witryny.",
+      "notLoaded": "Nie załadowano: wersja Node.js na tym serwerze nie obsługuje piaskownicy wtyczek."
     }
   },
   "content": {

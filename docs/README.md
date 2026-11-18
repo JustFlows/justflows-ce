@@ -26,6 +26,7 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | [SDK compatibility](SDK-COMPATIBILITY.md)             | Version ranges, runtime versions, deprecation, and API stability      |
 | [Permissions](PERMISSIONS.md)                         | Plugin permissions vs user capabilities                               |
 | [Extension trust](EXTENSION-TRUST.md)                 | What extension permissions and signatures do not constrain            |
+| [Plugin sandbox](PLUGIN-SANDBOX.md)                   | The experimental process sandbox for unverified plugins               |
 | [Incident response](INCIDENT-RESPONSE.md)             | Contain, reinstall, rotate, restore, and notify                       |
 | [Diagnostics](DIAGNOSTICS.md)                         | Debug mode, CLI checks, traces, and plugin health checks              |
 | [Resource limits](RESOURCE-LIMITS.md)                 | Shared and per-process limits in multi-worker deployments             |

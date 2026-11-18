@@ -47,6 +47,7 @@ vi.mock("../../../../src/lib/extensions/plugin-trust.js", () => {
     operatorTrustAllowed: async () => state.allowed,
     legacyDeadline: () => "2027-02-16T00:00:00.000Z",
     recordTrustTransitions: async () => [],
+    pluginSandboxMode: () => "off",
     setOperatorTrust: async (input: { pluginId: string; archiveDigest: string; trusted: boolean }) => void state.trustCalls.push(input),
   };
 });

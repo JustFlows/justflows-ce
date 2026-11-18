@@ -269,7 +269,9 @@
       "password": "Your password",
       "trustConfirm": "Trust this build",
       "untrustConfirm": "Stop trusting",
-      "failed": "Could not change the trust setting."
+      "failed": "Could not change the trust setting.",
+      "sandboxed": "Runs in the plugin sandbox, with limited access to the site.",
+      "notLoaded": "Not loaded: this server's Node.js version cannot run the plugin sandbox."
     }
   },
   "content": {

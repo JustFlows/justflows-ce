@@ -122,8 +122,11 @@ The rules:
 Every state change is audited as `extension.trust_changed`, and operator trust
 as `extension.operator_trusted` and `extension.operator_untrusted`.
 
-Once the sandbox ships, unverified plugins will run inside it. Verified
-releases, and builds you trusted, will run outside it as plugins do today.
+With `JF_PLUGIN_SANDBOX=on`, unverified plugins run their server code in the
+experimental [plugin sandbox](PLUGIN-SANDBOX.md), and verified releases and
+builds you trusted run outside it as plugins do today. The sandbox does not yet
+cover admin apps or what a plugin adds to public pages, so it is off by default
+and the decision above still applies.
 
 ## Update trust policy
 

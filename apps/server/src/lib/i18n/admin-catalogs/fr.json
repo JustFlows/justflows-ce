@@ -269,7 +269,9 @@
       "password": "Votre mot de passe",
       "trustConfirm": "Approuver ce build",
       "untrustConfirm": "Ne plus approuver",
-      "failed": "Impossible de modifier le réglage de confiance."
+      "failed": "Impossible de modifier le réglage de confiance.",
+      "sandboxed": "S’exécute dans le bac à sable des extensions, avec un accès limité au site.",
+      "notLoaded": "Non chargée : la version de Node.js de ce serveur ne peut pas exécuter le bac à sable des extensions."
     }
   },
   "content": {

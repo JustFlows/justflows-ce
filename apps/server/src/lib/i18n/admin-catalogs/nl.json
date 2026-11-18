@@ -269,7 +269,9 @@
       "password": "Je wachtwoord",
       "trustConfirm": "Deze build vertrouwen",
       "untrustConfirm": "Niet meer vertrouwen",
-      "failed": "De vertrouwensinstelling kon niet worden gewijzigd."
+      "failed": "De vertrouwensinstelling kon niet worden gewijzigd.",
+      "sandboxed": "Draait in de plugin-sandbox, met beperkte toegang tot de site.",
+      "notLoaded": "Niet geladen: de Node.js-versie van deze server kan de plugin-sandbox niet draaien."
     }
   },
   "content": {

@@ -53,6 +53,8 @@ interface PluginTrust {
 interface TrustPayload {
   plugins: PluginTrust[];
   operatorTrustAllowed: boolean;
+  /** Whether unverified plugins run in the sandbox here (justflows-ce#270). */
+  sandbox?: { mode: "on" | "off"; supported: boolean };
 }
 
 const TRUST_VARIANT: Record<TrustState, string> = {
@@ -66,7 +68,7 @@ const TRUST_VARIANT: Record<TrustState, string> = {
  * A plugin's trust state (justflows-ce#270) and, on a single self-hosted site,
  * the control to trust this exact build. Trusting asks for the password.
  */
-function TrustRow({ trust, allowed, onChanged }: { trust: PluginTrust; allowed: boolean; onChanged: (next: PluginTrust) => void }) {
+function TrustRow({ trust, allowed, sandbox, onChanged }: { trust: PluginTrust; allowed: boolean; sandbox?: TrustPayload["sandbox"]; onChanged: (next: PluginTrust) => void }) {
   const { t } = useT();
   const [confirming, setConfirming] = useState(false);
   const [password, setPassword] = useState("");
@@ -102,6 +104,9 @@ function TrustRow({ trust, allowed, onChanged }: { trust: PluginTrust; allowed: 
         <span className={`jf-badge${TRUST_VARIANT[trust.state]}`}>{t(`plugins.trust.states.${trust.state}`)}</span>{" "}
         {t(`plugins.trust.reasons.${trust.reason}`, { date })}
       </p>
+      {sandbox?.mode === "on" && trust.state === "unverified" ? (
+        <p className="jf-meta">{sandbox.supported ? t("plugins.trust.sandboxed") : t("plugins.trust.notLoaded")}</p>
+      ) : null}
       {canTrust && !confirming ? (
         <div className="jf-row">
           <button className="jf-btn jf-btn--ghost" type="button" onClick={() => setConfirming(true)}>
@@ -392,6 +397,7 @@ export default function PluginsPage() {
                       <TrustRow
                         trust={row}
                         allowed={trust!.operatorTrustAllowed}
+                        sandbox={trust!.sandbox}
                         onChanged={(next) => setTrust((current) => current && { ...current, plugins: current.plugins.map((item) => (item.pluginId === next.pluginId ? next : item)) })}
                       />
                     ) : null;

@@ -269,7 +269,9 @@
       "password": "Tu contraseña",
       "trustConfirm": "Confiar en esta compilación",
       "untrustConfirm": "Dejar de confiar",
-      "failed": "No se pudo cambiar el ajuste de confianza."
+      "failed": "No se pudo cambiar el ajuste de confianza.",
+      "sandboxed": "Se ejecuta en el entorno aislado de plugins, con acceso limitado al sitio.",
+      "notLoaded": "No se ha cargado: la versión de Node.js de este servidor no puede ejecutar el entorno aislado de plugins."
     }
   },
   "content": {

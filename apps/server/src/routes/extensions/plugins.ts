@@ -480,6 +480,7 @@ router.get("/trust", trustRequestLimit, requireRole("administrator"), async (req
       legacyUntil: trust.legacyDeadline(policy),
       attestations: attestations.state === "unavailable" ? { state: "unavailable" } : { state: attestations.state, issuedAt: attestations.feed.issuedAt, expiresAt: attestations.feed.expiresAt },
       operatorTrustAllowed: operatorTrustAllowed && isInstallationRootRequest(),
+      sandbox: { mode: trust.pluginSandboxMode(), supported: (await import("../../lib/plugins/sandbox/sandbox-host.js")).sandboxSupported() },
     });
   } catch (err) {
     sendServerError(res, "plugins", err);

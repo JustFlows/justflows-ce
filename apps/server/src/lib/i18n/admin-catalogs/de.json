@@ -269,7 +269,9 @@
       "password": "Ihr Passwort",
       "trustConfirm": "Diesem Build vertrauen",
       "untrustConfirm": "Nicht mehr vertrauen",
-      "failed": "Die Vertrauenseinstellung konnte nicht geändert werden."
+      "failed": "Die Vertrauenseinstellung konnte nicht geändert werden.",
+      "sandboxed": "Läuft in der Plugin-Sandbox, mit eingeschränktem Zugriff auf die Website.",
+      "notLoaded": "Nicht geladen: Die Node.js-Version dieses Servers kann die Plugin-Sandbox nicht ausführen."
     }
   },
   "content": {
