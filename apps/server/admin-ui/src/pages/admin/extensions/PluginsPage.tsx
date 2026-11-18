@@ -53,6 +53,8 @@ interface PluginTrust {
 interface TrustPayload {
   plugins: PluginTrust[];
   operatorTrustAllowed: boolean;
+  /** False until Justflows publishes its attestation list; trust states are hidden until then. */
+  live?: boolean;
   /** Whether unverified plugins run in the sandbox here (justflows-ce#270). */
   sandbox?: { mode: "on" | "off"; supported: boolean };
 }
@@ -396,7 +398,7 @@ export default function PluginsPage() {
                   <p className="jf-meta">{t("ui.pluginsPage.by")}{p.publisher} · <code className="jf-code">{p.id}</code></p>
                   {(() => {
                     const row = trust?.plugins.find((item) => item.pluginId === p.id);
-                    return row ? (
+                    return row && trust!.live !== false ? (
                       <TrustRow
                         trust={row}
                         allowed={trust!.operatorTrustAllowed}

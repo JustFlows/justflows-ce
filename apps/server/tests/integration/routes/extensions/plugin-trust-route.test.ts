@@ -87,7 +87,7 @@ describe("plugin trust routes", () => {
     expect((await call("/trust", "editor")).status).toBe(403);
     const ok = await call("/trust", "administrator");
     expect(ok.status).toBe(200);
-    expect(ok.body).toMatchObject({ legacyUntil: "2027-02-16T00:00:00.000Z", attestations: { state: "unavailable" }, operatorTrustAllowed: true });
+    expect(ok.body).toMatchObject({ legacyUntil: "2027-02-16T00:00:00.000Z", attestations: { state: "unavailable" }, operatorTrustAllowed: true, live: false });
     expect(ok.body.plugins[0]).toMatchObject({ pluginId: "own.plugin", state: "unverified" });
   });
 

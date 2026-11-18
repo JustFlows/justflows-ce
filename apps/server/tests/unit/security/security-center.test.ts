@@ -275,7 +275,7 @@ describe("security center checks", () => {
 
 describe("plugin trust check", () => {
   const known = (counts: Partial<{ verified: number; operator: number; legacy: number; unverified: number }>) =>
-    facts({ pluginTrust: { state: "known", verified: 0, operator: 0, legacy: 0, unverified: 0, legacyUntil: "2027-02-16T00:00:00.000Z", ...counts } });
+    facts({ pluginTrust: { state: "known", verified: 0, operator: 0, legacy: 0, unverified: 0, legacyUntil: "2027-02-16T00:00:00.000Z", live: true, ...counts } });
 
   it("warns about unverified plugins before legacy ones, and passes when all are verified or trusted", () => {
     expect(byId(evaluateSecurityCenter(known({ unverified: 1, legacy: 2 })), "extensions.trust")).toMatchObject({ status: "warn", severity: "medium", summary: "unverified", scope: "site" });
@@ -284,8 +284,13 @@ describe("plugin trust check", () => {
     expect(byId(evaluateSecurityCenter(facts()), "extensions.trust")).toMatchObject({ status: "unknown", summary: "unavailable" });
   });
 
+  it("is left out until Justflows publishes an attestation list", () => {
+    const quiet = evaluateSecurityCenter(facts({ pluginTrust: { state: "known", verified: 0, operator: 0, legacy: 0, unverified: 3, legacyUntil: null, live: false } }));
+    expect(quiet.some((check) => check.id === "extensions.trust")).toBe(false);
+  });
+
   it("is shown on every site, not only the platform site", () => {
-    const report = securityCenterReport(facts({ installationRoot: false, pluginTrust: { state: "known", verified: 0, operator: 0, legacy: 0, unverified: 1, legacyUntil: null } }));
+    const report = securityCenterReport(facts({ installationRoot: false, pluginTrust: { state: "known", verified: 0, operator: 0, legacy: 0, unverified: 1, legacyUntil: null, live: true } }));
     expect(report.checks.some((check) => check.id === "extensions.trust")).toBe(true);
   });
 });

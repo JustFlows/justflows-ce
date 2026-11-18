@@ -100,7 +100,19 @@ export interface SecurityCenterFacts {
   /** Plugin trust states on this site (justflows-ce#270). */
   pluginTrust:
     | { state: "unknown" }
-    | { state: "known"; verified: number; operator: number; legacy: number; unverified: number; legacyUntil: string | null };
+    | {
+        state: "known";
+        verified: number;
+        operator: number;
+        legacy: number;
+        unverified: number;
+        legacyUntil: string | null;
+        /**
+         * False while no attestation list was ever received and the sandbox is
+         * off: nothing can be verified yet, so the check is left out.
+         */
+        live: boolean;
+      };
   backup:
     | { state: "unknown" }
     | {
@@ -746,6 +758,7 @@ function backupCheck(facts: SecurityCenterFacts): SecurityCheck {
 
 /** Turn a snapshot into checks. Does not read the database or the network. */
 export function evaluateSecurityCenter(facts: SecurityCenterFacts): SecurityCheck[] {
+  const trustLive = facts.pluginTrust.state !== "known" || facts.pluginTrust.live;
   return [
     nodeCheck(facts),
     updateCheck(facts),
@@ -760,7 +773,7 @@ export function evaluateSecurityCenter(facts: SecurityCenterFacts): SecurityChec
     proxyCheck(facts),
     headersCheck(facts),
     integrityCheck(facts),
-    pluginTrustCheck(facts),
+    ...(trustLive ? [pluginTrustCheck(facts)] : []),
     backupCheck(facts),
   ];
 }

@@ -488,6 +488,8 @@ router.get("/trust", trustRequestLimit, requireRole("administrator"), async (req
       legacyUntil: trust.legacyDeadline(policy),
       attestations: attestations.state === "unavailable" ? { state: "unavailable" } : { state: attestations.state, issuedAt: attestations.feed.issuedAt, expiresAt: attestations.feed.expiresAt },
       operatorTrustAllowed: operatorTrustAllowed && isInstallationRootRequest(),
+      /** Hidden until Justflows publishes an attestation list, unless the sandbox uses the states. */
+      live: attestations.state !== "unavailable" || trust.pluginSandboxMode() === "on",
       sandbox: { mode: trust.pluginSandboxMode(), supported: (await import("../../lib/plugins/sandbox/sandbox-host.js")).sandboxSupported() },
     });
   } catch (err) {

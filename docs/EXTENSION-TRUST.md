@@ -84,7 +84,11 @@ applies until the sandbox ships and passes its isolation tests. Nothing here is
 a sandbox.
 
 Every installed plugin has one of four states, shown on **Plugins** and counted
-in the Security Center (**Plugin verification**):
+in the Security Center (**Plugin verification**). Until this installation has
+received an attestation list from Justflows, nothing can be verified, so both
+places hide the states. They appear by themselves once a list arrives, or
+straight away with `JF_PLUGIN_SANDBOX=on`, where the states decide how plugins
+run. An expired list still shows, because a stale list is worth knowing about.
 
 | State | Meaning |
 | --- | --- |

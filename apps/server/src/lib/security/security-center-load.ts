@@ -283,8 +283,8 @@ async function readBackup(): Promise<SecurityCenterFacts["backup"]> {
 
 async function readPluginTrust(siteId: string): Promise<SecurityCenterFacts["pluginTrust"]> {
   try {
-    const { getPluginTrustPolicy, legacyDeadline, listPluginTrust } = await import("../extensions/plugin-trust.js");
-    const [rows, policy] = await Promise.all([listPluginTrust(siteId), getPluginTrustPolicy()]);
+    const { getPluginTrustPolicy, legacyDeadline, listPluginTrust, loadAttestationFeed, pluginSandboxMode } = await import("../extensions/plugin-trust.js");
+    const [rows, policy, feed] = await Promise.all([listPluginTrust(siteId), getPluginTrustPolicy(), loadAttestationFeed()]);
     const count = (state: string) => rows.filter((item) => item.state === state).length;
     return {
       state: "known",
@@ -293,6 +293,7 @@ async function readPluginTrust(siteId: string): Promise<SecurityCenterFacts["plu
       legacy: count("legacy"),
       unverified: count("unverified"),
       legacyUntil: legacyDeadline(policy),
+      live: feed.state !== "unavailable" || pluginSandboxMode() === "on",
     };
   } catch {
     return { state: "unknown" };
